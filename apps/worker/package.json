@@ -1,0 +1,33 @@
+{
+  "name": "@wiki/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "development": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "development": "./src/*.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "dev": "tsx watch --conditions development src/index.ts",
+    "build": "tsc --build",
+    "start": "node dist/index.js",
+    "test": "vitest run --passWithNoTests",
+    "lint": "eslint .",
+    "typecheck": "tsc --build --pretty false"
+  },
+  "dependencies": {
+    "@wiki/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "4.19.4"
+  }
+}

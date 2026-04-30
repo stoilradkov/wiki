@@ -1,0 +1,33 @@
+{
+  "name": "wiki",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.10.0",
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @wiki/shared --filter @wiki/backend --filter @wiki/worker --filter @wiki/frontend dev",
+    "dev:api": "pnpm --filter @wiki/backend dev",
+    "dev:worker": "pnpm --filter @wiki/worker dev",
+    "dev:frontend": "pnpm --filter @wiki/frontend dev",
+    "docker:dev": "docker compose -f docker-compose.dev.yml up --build",
+    "docker:dev:down": "docker compose -f docker-compose.dev.yml down",
+    "docker:infra": "docker compose -f docker-compose.dev.yml up postgres redis",
+    "docker:infra:down": "docker compose -f docker-compose.dev.yml stop postgres redis",
+    "build": "pnpm --filter @wiki/shared build && pnpm --filter @wiki/backend build && pnpm --filter @wiki/worker build && pnpm --filter @wiki/frontend build",
+    "format": "prettier --write .",
+    "test": "pnpm --recursive test",
+    "lint": "pnpm --recursive lint",
+    "typecheck": "pnpm --recursive typecheck"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.26.0",
+    "@types/node": "22.15.17",
+    "eslint": "9.26.0",
+    "globals": "16.1.0",
+    "prettier": "3.5.3",
+    "typescript": "5.8.3",
+    "typescript-eslint": "8.32.1",
+    "vitest": "3.1.3",
+    "zod": "3.25.76"
+  }
+}

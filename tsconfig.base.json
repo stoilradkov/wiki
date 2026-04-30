@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": ["node"],
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "paths": {
+      "@wiki/backend": ["./apps/backend/src/index.ts"],
+      "@wiki/backend/*": ["./apps/backend/src/*"],
+      "@wiki/frontend": ["./apps/frontend/src"],
+      "@wiki/frontend/*": ["./apps/frontend/src/*"],
+      "@wiki/worker": ["./apps/worker/src/index.ts"],
+      "@wiki/worker/*": ["./apps/worker/src/*"],
+      "@wiki/shared": ["./packages/shared/src/index.ts"],
+      "@wiki/shared/*": ["./packages/shared/src/*"]
+    }
+  }
+}
