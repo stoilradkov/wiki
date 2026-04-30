@@ -159,6 +159,8 @@ This phase establishes the monorepo, Docker dev environment, shared contracts, c
 
 **Dependencies:** Story 1.1.
 
+**Status:** Completed 2026-04-30.
+
 **Acceptance Criteria:**
 
 - Generation model is configurable.
@@ -176,6 +178,8 @@ This phase establishes the monorepo, Docker dev environment, shared contracts, c
 **Phase:** 1
 
 **Dependencies:** Stories 1.2, 13.1.
+
+**Status:** Completed 2026-04-30.
 
 **Acceptance Criteria:**
 

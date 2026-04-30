@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  createPublicAiSettings,
   createAppInfo,
   healthResponseSchema,
   packageName,
@@ -47,7 +48,68 @@ describe("shared bootstrap contracts", () => {
       NODE_ENV: "development",
       DATABASE_URL: "postgresql://wiki:wiki@127.0.0.1:5432/wiki",
       REDIS_URL: "redis://127.0.0.1:6379",
-      GEMINI_API_KEY: undefined
+      GEMINI_API_KEY: undefined,
+      AI_PROVIDER: "gemini",
+      AI_GENERATION_MODEL: "gemini-3-flash",
+      AI_EMBEDDING_MODEL: "gemini-embedding-002",
+      AI_EMBEDDING_DIMENSION: 768,
+      AI_THINKING_BUDGET_MARKDOWNIFY: 256,
+      AI_THINKING_BUDGET_EXTRACTION: 256,
+      AI_THINKING_BUDGET_CHAT: 512,
+      AI_EMBEDDING_BATCH_SIZE: 16,
+      WORKER_RETRY_COUNT: 3,
+      WORKER_CONCURRENCY: 1
     });
+  });
+
+  it("coerces configurable AI model budgets and worker limits", () => {
+    expect(
+      parseBackendEnv({
+        AI_GENERATION_MODEL: "gemini-2.5-pro",
+        AI_EMBEDDING_MODEL: "gemini-embedding-001",
+        AI_EMBEDDING_DIMENSION: "1024",
+        AI_THINKING_BUDGET_MARKDOWNIFY: "0",
+        AI_THINKING_BUDGET_EXTRACTION: "64",
+        AI_THINKING_BUDGET_CHAT: "128",
+        AI_EMBEDDING_BATCH_SIZE: "8",
+        WORKER_RETRY_COUNT: "5",
+        WORKER_CONCURRENCY: "2"
+      })
+    ).toMatchObject({
+      AI_GENERATION_MODEL: "gemini-2.5-pro",
+      AI_EMBEDDING_MODEL: "gemini-embedding-001",
+      AI_EMBEDDING_DIMENSION: 1024,
+      AI_THINKING_BUDGET_MARKDOWNIFY: 0,
+      AI_THINKING_BUDGET_EXTRACTION: 64,
+      AI_THINKING_BUDGET_CHAT: 128,
+      AI_EMBEDDING_BATCH_SIZE: 8,
+      WORKER_RETRY_COUNT: 5,
+      WORKER_CONCURRENCY: 2
+    });
+  });
+
+  it("creates public AI settings without exposing secrets", () => {
+    const settings = createPublicAiSettings(
+      parseBackendEnv({
+        GEMINI_API_KEY: "super-secret"
+      })
+    );
+
+    expect(settings).toEqual({
+      provider: "gemini",
+      generationModel: "gemini-3-flash",
+      embeddingModel: "gemini-embedding-002",
+      embeddingDimension: 768,
+      thinkingBudgets: {
+        markdownify: 256,
+        extraction: 256,
+        chat: 512
+      },
+      embeddingBatchSize: 16,
+      workerRetryCount: 3,
+      workerConcurrency: 1,
+      secretStatus: "configured"
+    });
+    expect(JSON.stringify(settings)).not.toContain("super-secret");
   });
 });

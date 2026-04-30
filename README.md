@@ -27,6 +27,30 @@ Optional local environment overrides can live in `.env`. Start from the checked-
 Copy-Item .env.example .env
 ```
 
+## AI Configuration
+
+Gemini is the only AI provider wired for v1. The API key is read by the backend and worker only:
+
+```text
+GEMINI_API_KEY=
+```
+
+Frontend code must use `/api/settings/ai` for provider and model visibility. That response includes a `secretStatus` value of `configured` or `missing`, but never includes the key itself. If the key is missing, setup warnings are logged by the backend and worker while the rest of the foundation app remains runnable.
+
+These knobs can be changed in `.env` without exposing secrets to the browser:
+
+```text
+AI_GENERATION_MODEL=gemini-3-flash
+AI_EMBEDDING_MODEL=gemini-embedding-002
+AI_EMBEDDING_DIMENSION=768
+AI_THINKING_BUDGET_MARKDOWNIFY=256
+AI_THINKING_BUDGET_EXTRACTION=256
+AI_THINKING_BUDGET_CHAT=512
+AI_EMBEDDING_BATCH_SIZE=16
+WORKER_RETRY_COUNT=3
+WORKER_CONCURRENCY=1
+```
+
 ## Run In Development
 
 ```powershell
@@ -118,6 +142,6 @@ Frontend UI uses Tailwind CSS, shadcn-style component scaffolding, lucide icons,
 
 ## Current Scope
 
-Implemented: Story 1.1, Bootstrap the Workspace; Story 1.2, Run the App in Docker Development Mode.
+Implemented: Story 1.1, Bootstrap the Workspace; Story 1.2, Run the App in Docker Development Mode; Story 13.1, Configure AI Models and Budgets; Story 14.1, Keep Secrets Backend-Only.
 
 Not implemented yet: database schema, ingestion, search, chat, and graph features.

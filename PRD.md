@@ -44,8 +44,8 @@ The core user experience is a project workspace. Users create projects, paste do
 - Worker queue: BullMQ backed by Redis.
 - Database: PostgreSQL 16 with pgvector.
 - AI provider: Gemini.
-- Generation model default: gemini-2.5-flash for markdownification, structured extraction, and chat.
-- Embedding model default: gemini-embedding-001 with 768 output dimensions.
+- Generation model default: gemini-3-flash for markdownification, structured extraction, and chat.
+- Embedding model default: gemini-embedding-002 with 768 output dimensions.
 - Runtime: latest Node image line for Docker, hot reload in dev, compiled JavaScript in production.
 
 ### Docker and Runtime Architecture

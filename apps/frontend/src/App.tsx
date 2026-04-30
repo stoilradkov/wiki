@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { RefreshCw } from "lucide-react";
-import { createAppInfo, packageName } from "@wiki/shared";
+import { BrainCircuit, RefreshCw, ShieldCheck, TriangleAlert } from "lucide-react";
+import { createAppInfo, packageName, type PublicAiSettings } from "@wiki/shared";
 import { Button } from "@wiki/frontend/components/ui/button";
-import { getHealth } from "@wiki/frontend/lib/api";
+import { getAiSettings, getHealth } from "@wiki/frontend/lib/api";
 
 const appInfo = createAppInfo();
 const backendHealthRetryDelays = [500, 1_000, 2_000, 4_000];
@@ -10,6 +10,8 @@ const backendHealthRetryDelays = [500, 1_000, 2_000, 4_000];
 export function App() {
   const [backendStatus, setBackendStatus] = useState("checking");
   const [isCheckingBackend, setIsCheckingBackend] = useState(true);
+  const [aiSettings, setAiSettings] = useState<PublicAiSettings | null>(null);
+  const [aiSettingsStatus, setAiSettingsStatus] = useState("loading");
 
   useEffect(() => {
     let mounted = true;
@@ -44,6 +46,19 @@ export function App() {
     }
 
     void checkBackend();
+
+    getAiSettings()
+      .then((settings) => {
+        if (mounted) {
+          setAiSettings(settings);
+          setAiSettingsStatus("loaded");
+        }
+      })
+      .catch(() => {
+        if (mounted) {
+          setAiSettingsStatus("unavailable");
+        }
+      });
 
     return () => {
       mounted = false;
@@ -96,6 +111,42 @@ export function App() {
               >
                 <RefreshCw className={isCheckingBackend ? "animate-spin" : ""} />
               </Button>
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-4 border-t pt-3">
+            <dt className="flex items-center gap-2 font-semibold text-muted-foreground">
+              <BrainCircuit className="size-4" />
+              AI provider
+            </dt>
+            <dd className="font-mono">
+              {aiSettings ? `${aiSettings.provider} / ${aiSettings.generationModel}` : aiSettingsStatus}
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-4 border-t pt-3">
+            <dt className="font-semibold text-muted-foreground">Embedding model</dt>
+            <dd className="font-mono">
+              {aiSettings
+                ? `${aiSettings.embeddingModel} (${aiSettings.embeddingDimension})`
+                : aiSettingsStatus}
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-4 border-t pt-3">
+            <dt className="font-semibold text-muted-foreground">Worker limits</dt>
+            <dd className="font-mono">
+              {aiSettings
+                ? `${aiSettings.workerConcurrency} worker / ${aiSettings.workerRetryCount} retries`
+                : aiSettingsStatus}
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-4 border-t pt-3">
+            <dt className="font-semibold text-muted-foreground">Gemini key</dt>
+            <dd className="flex items-center gap-2 font-mono">
+              {aiSettings?.secretStatus === "configured" ? (
+                <ShieldCheck className="size-4 text-accent-foreground" />
+              ) : (
+                <TriangleAlert className="size-4 text-muted-foreground" />
+              )}
+              <span>{aiSettings?.secretStatus ?? aiSettingsStatus}</span>
             </dd>
           </div>
         </dl>

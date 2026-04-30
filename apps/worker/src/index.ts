@@ -1,9 +1,10 @@
-import { createAppInfo } from "@wiki/shared";
+import { createAppInfo, createPublicAiSettings } from "@wiki/shared";
 import { env } from "@wiki/worker/env";
 
 const app = createAppInfo();
 const databaseConfigured = Boolean(env.DATABASE_URL);
 const redisConfigured = Boolean(env.REDIS_URL);
+const aiSettings = createPublicAiSettings(env);
 
 console.log(
   JSON.stringify({
@@ -12,9 +13,21 @@ console.log(
     message: "Worker dev process ready",
     app,
     databaseConfigured,
-    redisConfigured
+    redisConfigured,
+    aiSettings
   })
 );
+
+if (!env.GEMINI_API_KEY) {
+  console.warn(
+    JSON.stringify({
+      level: "warn",
+      service: "worker",
+      message:
+        "GEMINI_API_KEY is not configured. AI ingestion will stay unavailable until it is set in the backend and worker environment."
+    })
+  );
+}
 
 const keepAlive = setInterval(() => {
   // Ingestion jobs are introduced in later stories; this keeps dev hot reload active.
