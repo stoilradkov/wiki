@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { HealthResponse, PublicAiSettings } from "@wiki/shared";
+import type { DomainEnums, HealthResponse, PublicAiSettings } from "@wiki/shared";
 
 export const api = axios.create({
   baseURL: "/api",
@@ -16,6 +16,12 @@ export async function getHealth(): Promise<HealthResponse> {
 
 export async function getAiSettings(): Promise<PublicAiSettings> {
   const response = await api.get<PublicAiSettings>("/settings/ai");
+
+  return response.data;
+}
+
+export async function getDomainEnums(): Promise<DomainEnums> {
+  const response = await api.get<DomainEnums>("/contracts/domain");
 
   return response.data;
 }

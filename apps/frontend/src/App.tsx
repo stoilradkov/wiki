@@ -1,8 +1,14 @@
 import { useEffect, useState } from "react";
 import { BrainCircuit, RefreshCw, ShieldCheck, TriangleAlert } from "lucide-react";
-import { createAppInfo, packageName, type PublicAiSettings } from "@wiki/shared";
+import {
+  createAppInfo,
+  domainEnums,
+  packageName,
+  type DomainEnums,
+  type PublicAiSettings
+} from "@wiki/shared";
 import { Button } from "@wiki/frontend/components/ui/button";
-import { getAiSettings, getHealth } from "@wiki/frontend/lib/api";
+import { getAiSettings, getDomainEnums, getHealth } from "@wiki/frontend/lib/api";
 
 const appInfo = createAppInfo();
 const backendHealthRetryDelays = [500, 1_000, 2_000, 4_000];
@@ -12,6 +18,8 @@ export function App() {
   const [isCheckingBackend, setIsCheckingBackend] = useState(true);
   const [aiSettings, setAiSettings] = useState<PublicAiSettings | null>(null);
   const [aiSettingsStatus, setAiSettingsStatus] = useState("loading");
+  const [backendDomainEnums, setBackendDomainEnums] = useState<DomainEnums | null>(null);
+  const [domainEnumsStatus, setDomainEnumsStatus] = useState("loading");
 
   useEffect(() => {
     let mounted = true;
@@ -57,6 +65,19 @@ export function App() {
       .catch(() => {
         if (mounted) {
           setAiSettingsStatus("unavailable");
+        }
+      });
+
+    getDomainEnums()
+      .then((contracts) => {
+        if (mounted) {
+          setBackendDomainEnums(contracts);
+          setDomainEnumsStatus("loaded");
+        }
+      })
+      .catch(() => {
+        if (mounted) {
+          setDomainEnumsStatus("unavailable");
         }
       });
 
@@ -119,7 +140,9 @@ export function App() {
               AI provider
             </dt>
             <dd className="font-mono">
-              {aiSettings ? `${aiSettings.provider} / ${aiSettings.generationModel}` : aiSettingsStatus}
+              {aiSettings
+                ? `${aiSettings.provider} / ${aiSettings.generationModel}`
+                : aiSettingsStatus}
             </dd>
           </div>
           <div className="flex items-center justify-between gap-4 border-t pt-3">
@@ -147,6 +170,21 @@ export function App() {
                 <TriangleAlert className="size-4 text-muted-foreground" />
               )}
               <span>{aiSettings?.secretStatus ?? aiSettingsStatus}</span>
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-4 border-t pt-3">
+            <dt className="font-semibold text-muted-foreground">Domain enums</dt>
+            <dd className="font-mono">
+              {backendDomainEnums
+                ? `${backendDomainEnums.documentStatuses.length} statuses / ${backendDomainEnums.pipelineStages.length} stages`
+                : domainEnumsStatus}
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-4 border-t pt-3">
+            <dt className="font-semibold text-muted-foreground">Graph contract</dt>
+            <dd className="font-mono">
+              {domainEnums.entityTypes.length} entity types / {domainEnums.predicates.length}{" "}
+              predicates
             </dd>
           </div>
         </dl>

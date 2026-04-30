@@ -2,6 +2,8 @@ import Fastify from "fastify";
 import {
   createAppInfo,
   createPublicAiSettings,
+  domainEnums,
+  domainEnumsSchema,
   healthResponseSchema,
   publicAiSettingsSchema
 } from "@wiki/shared";
@@ -20,6 +22,7 @@ const getHealth = async () =>
 
 server.get("/health", getHealth);
 server.get("/api/health", getHealth);
+server.get("/api/contracts/domain", async () => domainEnumsSchema.parse(domainEnums));
 server.get("/api/settings/ai", async () =>
   publicAiSettingsSchema.parse(createPublicAiSettings(env))
 );

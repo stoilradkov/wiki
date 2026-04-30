@@ -10,6 +10,33 @@ export {
   type WorkerEnv
 } from "./env";
 
+export {
+  documentStatusSchema,
+  documentStatusValues,
+  domainEnums,
+  domainEnumsSchema,
+  entityTypeSchema,
+  entityTypeValues,
+  eventTypeSchema,
+  eventTypeValues,
+  extractionProfileSchema,
+  extractionProfileValues,
+  ingestionModeSchema,
+  ingestionModeValues,
+  pipelineStageSchema,
+  pipelineStageValues,
+  predicateSchema,
+  predicateValues,
+  type DocumentStatus,
+  type DomainEnums,
+  type EntityType,
+  type EventType,
+  type ExtractionProfile,
+  type IngestionMode,
+  type PipelineStage,
+  type Predicate
+} from "./domain";
+
 export const packageName = "wiki";
 
 export const appInfoSchema = z.object({

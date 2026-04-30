@@ -1,4 +1,4 @@
-import { createAppInfo, createPublicAiSettings } from "@wiki/shared";
+import { createAppInfo, createPublicAiSettings, domainEnums } from "@wiki/shared";
 import { env } from "@wiki/worker/env";
 
 const app = createAppInfo();
@@ -14,7 +14,9 @@ console.log(
     app,
     databaseConfigured,
     redisConfigured,
-    aiSettings
+    aiSettings,
+    supportedDocumentStatuses: domainEnums.documentStatuses,
+    supportedPipelineStages: domainEnums.pipelineStages
   })
 );
 
