@@ -1,5 +1,6 @@
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import { defineConfig, normalizePath } from "vite";
 import { fileURLToPath, URL } from "node:url";
 import { loadFrontendDevEnv } from "./env";
@@ -17,7 +18,14 @@ export default defineConfig(({ mode }) => {
   const env = loadFrontendDevEnv(mode, envDir);
 
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      tanstackRouter({
+        target: "react",
+        autoCodeSplitting: true
+      }),
+      react(),
+      tailwindcss()
+    ],
     envDir,
     resolve: {
       alias: [

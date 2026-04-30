@@ -9,7 +9,7 @@ import {
   ingestionModeValues,
   pipelineStageValues,
   predicateValues
-} from "./domain";
+} from "@wiki/shared/domain";
 
 describe("shared domain enums", () => {
   it("covers the v1 document statuses and pipeline stages", () => {

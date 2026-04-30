@@ -1,4 +1,7 @@
-import Fastify from "fastify";
+import { env } from "@wiki/backend/env";
+import { registerDocumentRoutes } from "@wiki/backend/modules/documents/routes";
+import { registerProjectRoutes } from "@wiki/backend/modules/projects/routes";
+import { sendValidationError } from "@wiki/backend/routes/helpers";
 import {
   createAppInfo,
   createPublicAiSettings,
@@ -7,7 +10,8 @@ import {
   healthResponseSchema,
   publicAiSettingsSchema
 } from "@wiki/shared";
-import { env } from "@wiki/backend/env";
+import Fastify from "fastify";
+import { ZodError } from "zod";
 
 const server = Fastify({
   logger: true
@@ -26,6 +30,22 @@ server.get("/api/contracts/domain", async () => domainEnumsSchema.parse(domainEn
 server.get("/api/settings/ai", async () =>
   publicAiSettingsSchema.parse(createPublicAiSettings(env))
 );
+
+server.setErrorHandler((error, request, reply) => {
+  if (error instanceof ZodError) {
+    void sendValidationError(error, reply);
+    return;
+  }
+
+  request.log.error(error);
+  void reply.status(500).send({
+    error: "internal_error",
+    message: "Unexpected server error"
+  });
+});
+
+await registerProjectRoutes(server);
+await registerDocumentRoutes(server);
 
 const port = env.PORT;
 const host = env.HOST;

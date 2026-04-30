@@ -2,10 +2,10 @@
   "name": "wiki",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "pnpm@10.10.0",
+  "packageManager": "pnpm@10.18.3",
   "type": "module",
   "scripts": {
-    "dev": "pnpm --parallel --filter @wiki/shared --filter @wiki/backend --filter @wiki/worker --filter @wiki/frontend dev",
+    "dev": "pnpm -r --parallel dev",
     "dev:api": "pnpm --filter @wiki/backend dev",
     "dev:worker": "pnpm --filter @wiki/worker dev",
     "dev:frontend": "pnpm --filter @wiki/frontend dev",
@@ -13,11 +13,17 @@
     "docker:dev:down": "docker compose -f docker-compose.dev.yml down",
     "docker:infra": "docker compose -f docker-compose.dev.yml up postgres redis",
     "docker:infra:down": "docker compose -f docker-compose.dev.yml stop postgres redis",
-    "build": "pnpm --filter @wiki/shared build && pnpm --filter @wiki/backend build && pnpm --filter @wiki/worker build && pnpm --filter @wiki/frontend build",
+    "db:generate": "pnpm --filter @wiki/backend db:generate",
+    "db:migrate": "pnpm --filter @wiki/backend db:migrate",
+    "build": "pnpm -r build",
     "format": "prettier --write .",
-    "test": "pnpm --recursive test",
-    "lint": "pnpm --recursive lint",
-    "typecheck": "pnpm --recursive typecheck"
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "engines": {
+    "node": ">=22.20.0",
+    "pnpm": ">=10.18.3"
   },
   "devDependencies": {
     "@eslint/js": "9.26.0",

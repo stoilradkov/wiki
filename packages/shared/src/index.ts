@@ -1,5 +1,11 @@
 import { z } from "zod";
-import type { BackendEnv, WorkerEnv } from "./env";
+import type { BackendEnv, WorkerEnv } from "@wiki/shared/env";
+import {
+  documentStatusSchema,
+  extractionProfileSchema,
+  ingestionModeSchema,
+  pipelineStageSchema
+} from "@wiki/shared/domain";
 
 export {
   backendEnvSchema,
@@ -8,7 +14,7 @@ export {
   workerEnvSchema,
   type BackendEnv,
   type WorkerEnv
-} from "./env";
+} from "@wiki/shared/env";
 
 export {
   documentStatusSchema,
@@ -35,7 +41,7 @@ export {
   type IngestionMode,
   type PipelineStage,
   type Predicate
-} from "./domain";
+} from "@wiki/shared/domain";
 
 export const packageName = "wiki";
 
@@ -71,6 +77,100 @@ export const publicAiSettingsSchema = z.object({
 });
 
 export type PublicAiSettings = z.infer<typeof publicAiSettingsSchema>;
+
+export const sourceMetadataSchema = z.object({
+  url: z.string().url().optional(),
+  title: z.string().min(1).optional(),
+  author: z.string().min(1).optional(),
+  sourceDate: z.string().min(1).optional(),
+  note: z.string().min(1).optional()
+});
+
+export type SourceMetadata = z.infer<typeof sourceMetadataSchema>;
+
+export const projectSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().min(1),
+  description: z.string(),
+  color: z.string().min(1),
+  icon: z.string().min(1),
+  archived: z.boolean(),
+  ingestionMode: ingestionModeSchema,
+  extractionProfile: extractionProfileSchema,
+  customExtractionInstructions: z.string().nullable(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime()
+});
+
+export type Project = z.infer<typeof projectSchema>;
+
+export const createProjectRequestSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  description: z.string().trim().max(1_000).optional().default(""),
+  color: z.string().trim().min(1).max(32).optional().default("#1f6feb"),
+  icon: z.string().trim().min(1).max(48).optional().default("folder"),
+  ingestionMode: ingestionModeSchema.optional().default("auto"),
+  extractionProfile: extractionProfileSchema.optional().default("general"),
+  customExtractionInstructions: z.string().trim().max(4_000).optional().nullable()
+});
+
+export type CreateProjectRequest = z.infer<typeof createProjectRequestSchema>;
+
+export const updateProjectRequestSchema = createProjectRequestSchema
+  .partial()
+  .refine((value) => Object.keys(value).length > 0, "At least one project field is required");
+
+export type UpdateProjectRequest = z.infer<typeof updateProjectRequestSchema>;
+
+export const listProjectsResponseSchema = z.object({
+  projects: z.array(projectSchema)
+});
+
+export type ListProjectsResponse = z.infer<typeof listProjectsResponseSchema>;
+
+export const documentSchema = z.object({
+  id: z.string().uuid(),
+  projectId: z.string().uuid(),
+  title: z.string().nullable(),
+  status: documentStatusSchema,
+  pipelineStage: pipelineStageSchema.nullable(),
+  ingestionMode: ingestionModeSchema,
+  sourceMetadata: sourceMetadataSchema,
+  rawContentStored: z.boolean(),
+  rawContentHash: z.string().min(1),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime()
+});
+
+export type Document = z.infer<typeof documentSchema>;
+
+export const documentDetailSchema = documentSchema.extend({
+  rawContent: z.string().nullable()
+});
+
+export type DocumentDetail = z.infer<typeof documentDetailSchema>;
+
+export const createDocumentRequestSchema = z.object({
+  title: z.string().trim().min(1).max(240).optional(),
+  rawContent: z.string().trim().min(1),
+  sourceMetadata: sourceMetadataSchema.optional().default({}),
+  ingestionMode: ingestionModeSchema.optional()
+});
+
+export type CreateDocumentRequest = z.infer<typeof createDocumentRequestSchema>;
+
+export const updateDocumentMetadataRequestSchema = z.object({
+  title: z.string().trim().min(1).max(240).optional().nullable(),
+  sourceMetadata: sourceMetadataSchema.optional()
+});
+
+export type UpdateDocumentMetadataRequest = z.infer<typeof updateDocumentMetadataRequestSchema>;
+
+export const listDocumentsResponseSchema = z.object({
+  documents: z.array(documentSchema)
+});
+
+export type ListDocumentsResponse = z.infer<typeof listDocumentsResponseSchema>;
 
 export function createAppInfo(version = "0.1.0"): AppInfo {
   return appInfoSchema.parse({

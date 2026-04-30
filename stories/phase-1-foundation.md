@@ -54,6 +54,8 @@ This phase establishes the monorepo, Docker dev environment, shared contracts, c
 
 **Dependencies:** Story 1.1.
 
+**Status:** Completed 2026-04-30.
+
 **Acceptance Criteria:**
 
 - Shared enums cover all v1 statuses and pipeline stages.
@@ -69,6 +71,8 @@ This phase establishes the monorepo, Docker dev environment, shared contracts, c
 **Phase:** 1
 
 **Dependencies:** Story 2.1.
+
+**Status:** Completed 2026-04-30.
 
 **Acceptance Criteria:**
 
@@ -88,6 +92,8 @@ This phase establishes the monorepo, Docker dev environment, shared contracts, c
 
 **Dependencies:** Stories 1.2, 2.2.
 
+**Status:** Completed 2026-04-30.
+
 **Acceptance Criteria:**
 
 - Users can create, rename, update, and view projects.
@@ -106,6 +112,8 @@ This phase establishes the monorepo, Docker dev environment, shared contracts, c
 
 **Dependencies:** Stories 3.1, 13.1, 14.1.
 
+**Status:** Completed 2026-04-30.
+
 **Acceptance Criteria:**
 
 - The paste form accepts raw text.
@@ -122,6 +130,8 @@ This phase establishes the monorepo, Docker dev environment, shared contracts, c
 **Phase:** 1
 
 **Dependencies:** Story 4.1.
+
+**Status:** Completed 2026-04-30.
 
 **Acceptance Criteria:**
 
@@ -140,6 +150,8 @@ This phase establishes the monorepo, Docker dev environment, shared contracts, c
 **Phase:** 1
 
 **Dependencies:** Stories 1.2, 3.1.
+
+**Status:** Completed 2026-04-30.
 
 **Acceptance Criteria:**
 
