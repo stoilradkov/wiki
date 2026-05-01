@@ -2,9 +2,29 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { FilePlus2 } from "lucide-react";
-import type { FormEvent } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import type { CreateDocumentRequest, SourceMetadata } from "@wiki/shared";
 import { Button } from "@wiki/frontend/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage
+} from "@wiki/frontend/components/ui/form";
+import { Input } from "@wiki/frontend/components/ui/input";
+import { Separator } from "@wiki/frontend/components/ui/separator";
+import { Textarea } from "@wiki/frontend/components/ui/textarea";
+import {
+  DocumentListSkeleton,
+  FormErrorBanner,
+  LoadingLabel,
+  PageError,
+  getErrorMessage
+} from "@wiki/frontend/components/interaction";
 import { createDocument, listDocuments } from "@wiki/frontend/modules/documents/api";
 import { documentQueryKeys } from "@wiki/frontend/modules/documents/query-keys";
 import { DocumentRow } from "@wiki/frontend/routes/projects/$projectId/documents/-components/document-row";
@@ -16,6 +36,18 @@ export const Route = createFileRoute("/projects/$projectId/documents")({
 function DocumentsView() {
   const { projectId } = useParams({ from: "/projects/$projectId" });
   const queryClient = useQueryClient();
+  const documentForm = useForm<DocumentFormValues>({
+    resolver: zodResolver(documentFormSchema),
+    defaultValues: {
+      rawContent: "",
+      sourceAuthor: "",
+      sourceDate: "",
+      sourceNote: "",
+      sourceTitle: "",
+      sourceUrl: "",
+      title: ""
+    }
+  });
   const documentsQuery = useQuery({
     queryKey: documentQueryKeys.all(projectId),
     queryFn: () => listDocuments(projectId)
@@ -25,94 +57,143 @@ function DocumentsView() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: documentQueryKeys.all(projectId) })
   });
 
-  function handlePaste(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
+  function handlePaste(values: DocumentFormValues) {
     const metadata: SourceMetadata = {
-      url: optionalField(form, "sourceUrl"),
-      title: optionalField(form, "sourceTitle"),
-      author: optionalField(form, "sourceAuthor"),
-      sourceDate: optionalField(form, "sourceDate"),
-      note: optionalField(form, "sourceNote")
+      author: optionalValue(values.sourceAuthor),
+      note: optionalValue(values.sourceNote),
+      sourceDate: optionalValue(values.sourceDate),
+      title: optionalValue(values.sourceTitle),
+      url: optionalValue(values.sourceUrl)
     };
 
     createDocumentMutation.mutate(
       {
-        title: optionalField(form, "title"),
-        rawContent: String(form.get("rawContent") ?? ""),
+        rawContent: values.rawContent,
+        title: optionalValue(values.title),
         sourceMetadata: metadata
       },
       {
-        onSuccess: () => event.currentTarget.reset()
+        onSuccess: () => documentForm.reset()
       }
     );
   }
 
   return (
-    <section className="grid gap-6 p-6">
-      <form className="grid gap-3 border-b pb-6" onSubmit={handlePaste}>
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Paste document</h3>
-          <Button disabled={createDocumentMutation.isPending} type="submit">
-            <FilePlus2 className="size-4" />
-            Queue
-          </Button>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <input
-            className="rounded-md border bg-card px-3 py-2 text-sm"
-            name="title"
-            placeholder="Optional title"
+    <section className="content-panel grid gap-6">
+      <Form {...documentForm}>
+        <form className="grid gap-3" onSubmit={documentForm.handleSubmit(handlePaste)}>
+          <div className="flex items-center justify-between">
+            <h3 className="section-title">Paste document</h3>
+            <Button
+              aria-busy={createDocumentMutation.isPending}
+              disabled={createDocumentMutation.isPending}
+              type="submit"
+            >
+              {createDocumentMutation.isPending ? (
+                <LoadingLabel>Queueing...</LoadingLabel>
+              ) : (
+                <>
+                  <FilePlus2 className="size-3.75" />
+                  Queue
+                </>
+              )}
+            </Button>
+          </div>
+          <FormErrorBanner>
+            {createDocumentMutation.isError
+              ? getErrorMessage(
+                  createDocumentMutation.error,
+                  "Could not queue document. Try again."
+                )
+              : null}
+          </FormErrorBanner>
+          <div className="grid grid-cols-2 gap-3">
+            {documentTextFields.map((fieldConfig) => (
+              <FormField
+                control={documentForm.control}
+                key={fieldConfig.name}
+                name={fieldConfig.name}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{fieldConfig.label}</FormLabel>
+                    <FormControl>
+                      <Input type={fieldConfig.type} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            ))}
+          </div>
+          <FormField
+            control={documentForm.control}
+            name="rawContent"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Raw text</FormLabel>
+                <FormControl>
+                  <Textarea className="paste-area" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
-          <input
-            className="rounded-md border bg-card px-3 py-2 text-sm"
-            name="sourceUrl"
-            placeholder="Source URL"
-            type="url"
-          />
-          <input
-            className="rounded-md border bg-card px-3 py-2 text-sm"
-            name="sourceTitle"
-            placeholder="Source title"
-          />
-          <input
-            className="rounded-md border bg-card px-3 py-2 text-sm"
-            name="sourceAuthor"
-            placeholder="Author or source name"
-          />
-          <input
-            className="rounded-md border bg-card px-3 py-2 text-sm"
-            name="sourceDate"
-            type="date"
-          />
-          <input
-            className="rounded-md border bg-card px-3 py-2 text-sm"
-            name="sourceNote"
-            placeholder="Source note"
-          />
-        </div>
-        <textarea
-          className="min-h-44 resize-y rounded-md border bg-card px-3 py-2 text-sm"
-          name="rawContent"
-          placeholder="Paste raw text here"
-          required
-        />
-      </form>
+        </form>
+      </Form>
+      <Separator />
       <div className="grid gap-3">
-        {(documentsQuery.data ?? []).map((document) => (
+        {documentsQuery.isLoading ? <DocumentListSkeleton /> : null}
+        {documentsQuery.isError ? (
+          <PageError
+            message="Could not load documents for this project"
+            onRetry={() => void documentsQuery.refetch()}
+          />
+        ) : null}
+        {documentsQuery.data?.map((document) => (
           <DocumentRow document={document} key={document.id} projectId={projectId} />
         ))}
         {documentsQuery.data?.length === 0 ? (
-          <p className="rounded-md border bg-card p-4 text-sm text-muted-foreground">
-            No documents queued yet.
-          </p>
+          <p className="card p-4 text-ui text-muted-foreground">No documents queued yet.</p>
         ) : null}
       </div>
     </section>
   );
 }
 
-function optionalField(form: FormData, name: string) {
-  const value = String(form.get(name) ?? "").trim();
-  return value.length > 0 ? value : undefined;
+type DocumentFormValues = {
+  rawContent: string;
+  sourceAuthor: string;
+  sourceDate: string;
+  sourceNote: string;
+  sourceTitle: string;
+  sourceUrl: string;
+  title: string;
+};
+
+const documentFormSchema = z.object({
+  rawContent: z.string().trim().min(1, "Raw text is required"),
+  sourceAuthor: z.string(),
+  sourceDate: z.string(),
+  sourceNote: z.string(),
+  sourceTitle: z.string(),
+  sourceUrl: z.union([z.string().url("Source URL must be valid"), z.literal("")]),
+  title: z.string()
+});
+
+const documentTextFields: Array<{
+  label: string;
+  name: Exclude<keyof DocumentFormValues, "rawContent">;
+  type?: string;
+}> = [
+  { label: "Title", name: "title" },
+  { label: "Source URL", name: "sourceUrl", type: "url" },
+  { label: "Source title", name: "sourceTitle" },
+  { label: "Author or source", name: "sourceAuthor" },
+  { label: "Source date", name: "sourceDate", type: "date" },
+  { label: "Source note", name: "sourceNote" }
+];
+
+function optionalValue(value: string) {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
 }

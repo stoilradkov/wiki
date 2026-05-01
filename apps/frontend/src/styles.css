@@ -1,31 +1,77 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --radius: 0.5rem;
-  --background: #f6f7f9;
-  --foreground: #1d242d;
-  --card: #ffffff;
-  --card-foreground: #1d242d;
-  --primary: #1f6feb;
-  --primary-foreground: #ffffff;
-  --secondary: #e8edf3;
-  --secondary-foreground: #243141;
-  --accent: #e8f2ee;
-  --accent-foreground: #17382c;
-  --muted: #edf1f5;
-  --muted-foreground: #516172;
-  --border: #d6dce4;
-  --input: #cfd7e1;
-  --ring: #1f6feb;
+  --bg: #0e0f0d;
+  --surface-1: #161714;
+  --surface-2: #1e1f1c;
+  --surface-3: #252622;
+  --text: #f0efe8;
+  --muted: #8a8a7e;
+  --faint: #4a4a42;
+  --border: rgba(255, 255, 255, 0.07);
+  --border-em: rgba(255, 255, 255, 0.13);
+  --accent: #c8f060;
+  --accent-dim: rgba(200, 240, 96, 0.1);
+  --amber: #f0b060;
+  --amber-dim: rgba(240, 176, 96, 0.12);
+  --coral: #f07060;
+  --coral-dim: rgba(240, 112, 96, 0.12);
+  --blue: #60a0f0;
+  --blue-dim: rgba(96, 160, 240, 0.12);
+  --purple: #a060f0;
+  --purple-dim: rgba(160, 96, 240, 0.12);
+  --font-size-stage: 9px;
+  --font-size-micro: 10px;
+  --font-size-badge: 11px;
+  --font-size-caption: 12px;
+  --font-size-ui: 13px;
+  --font-size-card-title: 15px;
+  --font-size-section-title: 18px;
+  --font-size-display-sm: 22px;
+  --font-size-brand: 24px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 14px;
+  --radius-full: 9999px;
+  --font-display: "DM Serif Display", serif;
+  --font-ui: "Outfit", sans-serif;
+  --font-mono: "DM Mono", monospace;
+
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--surface-2);
+  --card-foreground: var(--text);
+  --primary: var(--accent);
+  --primary-foreground: var(--bg);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--text);
+  --accent-foreground: var(--accent);
+  --muted-foreground: var(--muted);
+  --input: var(--border-em);
+  --ring: var(--accent);
 }
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 14px;
+  --font-sans: var(--font-ui);
+  --font-serif: var(--font-display);
+  --font-mono: "DM Mono", monospace;
+  --text-stage: var(--font-size-stage);
+  --text-micro: var(--font-size-micro);
+  --text-badge: var(--font-size-badge);
+  --text-caption: var(--font-size-caption);
+  --text-ui: var(--font-size-ui);
+  --text-card-title: var(--font-size-card-title);
+  --text-display-sm: var(--font-size-display-sm);
+  --text-brand: var(--font-size-brand);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -41,6 +87,14 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-faint: var(--faint);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-amber: var(--amber);
+  --color-coral: var(--coral);
+  --color-blue: var(--blue);
+  --color-purple: var(--purple);
 }
 
 * {
@@ -52,8 +106,372 @@ body {
   margin: 0;
   background: var(--background);
   color: var(--foreground);
-  font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+  font-family: var(--font-ui);
+  font-size: var(--font-size-ui);
+  line-height: 1.65;
 }
 
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+::selection {
+  background: var(--accent-dim);
+  color: var(--text);
+}
+
+@layer components {
+  .app-shell {
+    display: flex;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  .sidebar {
+    display: flex;
+    width: 220px;
+    flex-shrink: 0;
+    flex-direction: column;
+    border-right: 0.5px solid var(--border);
+    background: var(--surface-1);
+  }
+
+  .topbar {
+    min-height: 54px;
+    border-bottom: 0.5px solid var(--border);
+    background: var(--bg);
+    padding: 16px 20px;
+  }
+
+  .content-panel {
+    width: 100%;
+    max-width: 1200px;
+    padding: 20px;
+  }
+
+  .page-title {
+    font-family: var(--font-display);
+    font-size: var(--font-size-brand);
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+  }
+
+  .section-title {
+    font-family: var(--font-display);
+    font-size: var(--font-size-section-title);
+    font-weight: 400;
+    line-height: 1.2;
+  }
+
+  .eyebrow {
+    color: var(--faint);
+    font-size: var(--font-size-micro);
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .meta {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-badge);
+    color: var(--muted);
+  }
+
+  .nav-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 0.5px solid transparent;
+    border-radius: var(--radius-md);
+    color: var(--muted);
+    font-size: var(--font-size-ui);
+    font-weight: 500;
+    padding: 6px 8px;
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease,
+      color 150ms ease;
+  }
+
+  .nav-row:hover {
+    background: var(--surface-2);
+    color: var(--text);
+  }
+
+  .nav-row-active {
+    background: var(--accent-dim);
+    border-color: rgba(200, 240, 96, 0.22);
+    color: var(--accent);
+  }
+
+  .card {
+    background: var(--surface-1);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    transition: border-color 150ms ease;
+  }
+
+  .card:hover {
+    border-color: var(--border-em);
+  }
+
+  .stat-card {
+    background: var(--surface-2);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+
+  .input {
+    background: var(--surface-3);
+    border: 0.5px solid var(--border-em);
+    border-radius: var(--radius-md);
+    color: var(--text);
+    font-size: var(--font-size-ui);
+    padding: 9px 12px;
+    outline: none;
+    transition:
+      border-color 150ms ease,
+      box-shadow 150ms ease;
+  }
+
+  .input:focus-visible {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-dim);
+  }
+
+  .input::placeholder {
+    color: var(--faint);
+  }
+
+  .input-error {
+    border-color: rgba(240, 112, 96, 0.4);
+  }
+
+  .field-error {
+    color: var(--coral);
+    font-size: var(--font-size-badge);
+    margin-top: 4px;
+  }
+
+  .form-error-banner {
+    align-items: center;
+    background: var(--coral-dim);
+    border: 0.5px solid rgba(240, 112, 96, 0.25);
+    border-radius: var(--radius-md);
+    color: var(--coral);
+    display: flex;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+
+  .paste-area {
+    min-height: 180px;
+    resize: vertical;
+    font-weight: 300;
+  }
+
+  .tag {
+    border-radius: 4px;
+    background: var(--surface-3);
+    color: var(--muted);
+    font-size: var(--font-size-micro);
+    padding: 2px 6px;
+  }
+
+  .empty-state {
+    display: grid;
+    min-height: 280px;
+    place-items: center;
+    text-align: center;
+  }
+
+  .stage-bar {
+    display: flex;
+    gap: 4px;
+  }
+
+  .stage-pip {
+    height: 4px;
+    flex: 1;
+    border-radius: 2px;
+    background: var(--surface-3);
+  }
+
+  .stage-pip-complete {
+    background: var(--accent);
+  }
+
+  .stage-pip-active {
+    animation: pulse 2s ease-in-out infinite;
+    background: var(--amber);
+  }
+
+  .skeleton {
+    animation: shimmer 1.5s infinite linear;
+    background: linear-gradient(
+      90deg,
+      var(--surface-2) 25%,
+      var(--surface-3) 50%,
+      var(--surface-2) 75%
+    );
+    background-size: 200% 100%;
+    border-radius: var(--radius-sm);
+  }
+
+  .page-error {
+    display: grid;
+    min-height: 360px;
+    place-content: center;
+    text-align: center;
+  }
+
+  .page-error h3 {
+    color: var(--text);
+    font-family: var(--font-display);
+    font-size: var(--font-size-brand);
+    font-style: italic;
+    font-weight: 400;
+    margin-top: 12px;
+  }
+
+  .page-error p {
+    color: var(--muted);
+    font-size: var(--font-size-ui);
+    margin-top: 6px;
+  }
+
+  .section-error {
+    align-items: center;
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--muted);
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .section-error button {
+    color: var(--coral);
+    cursor: pointer;
+    font-size: var(--font-size-caption);
+    margin-left: auto;
+  }
+
+  .dialog-backdrop {
+    align-items: center;
+    animation: fade-in 150ms ease-out;
+    background: rgba(0, 0, 0, 0.54);
+    display: flex;
+    inset: 0;
+    justify-content: center;
+    padding: 20px;
+    position: fixed;
+    z-index: 60;
+  }
+
+  .dialog-panel {
+    animation: dialog-in 180ms ease-out;
+    background: var(--surface-2);
+    border: 0.5px solid var(--border-em);
+    border-radius: var(--radius-xl);
+    box-shadow: 0 18px 80px rgba(0, 0, 0, 0.35);
+    max-width: 560px;
+    padding: 20px;
+    width: min(100%, 560px);
+  }
+
+  .dialog-title {
+    font-family: var(--font-display);
+    font-size: var(--font-size-display-sm);
+    font-weight: 400;
+    line-height: 1.15;
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+
+  50% {
+    opacity: 0.4;
+    transform: scaleY(0.8);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (max-width: 1200px) {
+  .sidebar {
+    width: 40px;
+  }
+
+  .sidebar-label,
+  .sidebar-heading,
+  .sidebar-search,
+  .sidebar-footer {
+    display: none;
+  }
+
+  .nav-row {
+    justify-content: center;
+    padding: 8px;
+  }
+}
+
+@media (max-width: 1023px) {
+  body::before {
+    content: "wiki is best experienced on a desktop viewport.";
+    position: fixed;
+    inset: 0 auto auto 0;
+    z-index: 50;
+    width: 100%;
+    background: var(--amber-dim);
+    color: var(--amber);
+    padding: 10px 16px;
+    text-align: center;
+  }
+}

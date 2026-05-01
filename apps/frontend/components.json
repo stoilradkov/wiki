@@ -4,11 +4,13 @@
   "rsc": false,
   "tsx": true,
   "tailwind": {
-    "css": "apps/frontend/src/styles.css",
-    "baseColor": "slate",
+    "config": "",
+    "css": "src/styles.css",
+    "baseColor": "neutral",
     "cssVariables": true,
     "prefix": ""
   },
+  "iconLibrary": "lucide",
   "aliases": {
     "components": "@wiki/frontend/components",
     "utils": "@wiki/frontend/lib/utils",
@@ -16,6 +18,5 @@
     "lib": "@wiki/frontend/lib",
     "hooks": "@wiki/frontend/hooks"
   },
-  "iconLibrary": "lucide"
+  "registries": {}
 }
-

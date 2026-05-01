@@ -4,19 +4,24 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@wiki/frontend/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center cursor-pointer justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] outline-none",
+  "inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md text-ui transition-[background-color,border-color,color,opacity,transform,box-shadow] duration-150 ease-in active:scale-[0.98] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-40 aria-busy:opacity-70 [&_svg]:pointer-events-none [&_svg]:size-[15px] [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/25",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground"
+        default: "border-0 bg-primary font-medium text-primary-foreground hover:opacity-90",
+        secondary:
+          "border-[0.5px] border-border bg-transparent font-normal text-muted-foreground hover:border-[var(--border-em)] hover:text-foreground",
+        ghost:
+          "border-[0.5px] border-[var(--border-em)] bg-transparent font-normal text-muted-foreground hover:text-foreground",
+        outline:
+          "border-[0.5px] border-[var(--border-em)] bg-transparent font-normal text-muted-foreground hover:text-foreground",
+        danger:
+          "border-[0.5px] border-[rgba(240,112,96,0.25)] bg-[var(--coral-dim)] font-normal text-coral hover:border-coral/40"
       },
       size: {
-        default: "h-9 px-4 py-2",
-        sm: "h-8 rounded-md px-3",
-        icon: "size-9"
+        default: "h-[34px] px-4 py-2",
+        sm: "h-[30px] px-3 py-1.5",
+        icon: "size-[30px] rounded-sm p-1.5"
       }
     },
     defaultVariants: {

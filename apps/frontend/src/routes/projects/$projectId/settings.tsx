@@ -2,13 +2,44 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { BrainCircuit, ShieldCheck, TriangleAlert } from "lucide-react";
-import type { FormEvent } from "react";
+import { useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import {
+  extractionProfileSchema,
   extractionProfileValues,
+  ingestionModeSchema,
   ingestionModeValues,
+  type Project,
   type CreateProjectRequest
 } from "@wiki/shared";
 import { Button } from "@wiki/frontend/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage
+} from "@wiki/frontend/components/ui/form";
+import { Input } from "@wiki/frontend/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@wiki/frontend/components/ui/select";
+import { Textarea } from "@wiki/frontend/components/ui/textarea";
+import {
+  FormErrorBanner,
+  LoadingLabel,
+  PageError,
+  SectionError,
+  SkeletonBlock,
+  getErrorMessage
+} from "@wiki/frontend/components/interaction";
 import { listProjects, updateProject } from "@wiki/frontend/modules/projects/api";
 import { projectQueryKeys } from "@wiki/frontend/modules/projects/query-keys";
 import { getAiSettings } from "@wiki/frontend/modules/settings/api";
@@ -30,122 +61,258 @@ function SettingsView() {
   });
   const healthQuery = useQuery({ queryKey: systemQueryKeys.health, queryFn: getHealth });
   const project = projectsQuery.data?.find((candidate) => candidate.id === projectId);
+  const settingsForm = useForm<SettingsFormValues>({
+    resolver: zodResolver(settingsFormSchema),
+    defaultValues: getProjectDefaults()
+  });
   const updateProjectMutation = useMutation({
     mutationFn: (input: Partial<CreateProjectRequest>) => updateProject(projectId, input),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: projectQueryKeys.all })
   });
 
-  function handleSettings(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
+  useEffect(() => {
+    if (project) settingsForm.reset(getProjectDefaults(project));
+  }, [project, settingsForm]);
+
+  function handleSettings(values: SettingsFormValues) {
     updateProjectMutation.mutate({
-      name: String(form.get("name") ?? ""),
-      description: String(form.get("description") ?? ""),
-      color: String(form.get("color") ?? "#1f6feb"),
-      icon: String(form.get("icon") ?? "folder"),
-      ingestionMode: String(
-        form.get("ingestionMode") ?? "auto"
-      ) as CreateProjectRequest["ingestionMode"],
-      extractionProfile: String(
-        form.get("extractionProfile") ?? "general"
-      ) as CreateProjectRequest["extractionProfile"],
-      customExtractionInstructions: optionalField(form, "customExtractionInstructions") ?? null
+      color: values.color,
+      customExtractionInstructions: optionalValue(values.customExtractionInstructions) ?? null,
+      description: values.description,
+      extractionProfile: values.extractionProfile,
+      icon: values.icon,
+      ingestionMode: values.ingestionMode,
+      name: values.name
     });
   }
 
+  if (projectsQuery.isLoading) {
+    return (
+      <section aria-busy="true" className="content-panel grid max-w-4xl gap-3">
+        <SkeletonBlock className="h-6 w-44" />
+        <SkeletonBlock className="h-10 w-full" />
+        <SkeletonBlock className="h-10 w-full" />
+        <SkeletonBlock className="h-24 w-full" />
+      </section>
+    );
+  }
+
+  if (projectsQuery.isError) {
+    return (
+      <section className="content-panel">
+        <PageError
+          message="Could not load project settings"
+          onRetry={() => void projectsQuery.refetch()}
+        />
+      </section>
+    );
+  }
+
   if (!project) {
-    return <section className="p-6 text-sm text-muted-foreground">Loading settings...</section>;
+    return (
+      <section className="content-panel">
+        <div className="empty-state">
+          <div>
+            <h3 className="font-serif text-display-sm italic text-muted-foreground">
+              This project no longer exists
+            </h3>
+          </div>
+        </div>
+      </section>
+    );
   }
 
   return (
-    <section className="grid max-w-4xl gap-6 p-6">
-      <form className="grid gap-3" onSubmit={handleSettings}>
-        <h3 className="text-lg font-semibold">Project settings</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <input
-            className="rounded-md border bg-card px-3 py-2 text-sm"
-            defaultValue={project.name}
-            name="name"
-            required
-          />
-          <input
-            className="h-10 rounded-md border bg-card px-2"
-            defaultValue={project.color}
-            name="color"
-            type="color"
-          />
-          <input
-            className="rounded-md border bg-card px-3 py-2 text-sm"
-            defaultValue={project.icon}
-            name="icon"
-          />
-          <input
-            className="rounded-md border bg-card px-3 py-2 text-sm"
-            defaultValue={project.description}
-            name="description"
-          />
-          <select
-            className="rounded-md border bg-card px-3 py-2 text-sm"
-            defaultValue={project.ingestionMode}
-            name="ingestionMode"
-          >
-            {ingestionModeValues.map((mode) => (
-              <option key={mode} value={mode}>
-                {mode}
-              </option>
+    <section className="content-panel grid max-w-4xl gap-6">
+      <Form {...settingsForm}>
+        <form className="grid gap-3" onSubmit={settingsForm.handleSubmit(handleSettings)}>
+          <h3 className="section-title">Project settings</h3>
+          <FormErrorBanner>
+            {updateProjectMutation.isError
+              ? getErrorMessage(updateProjectMutation.error, "Could not save settings. Try again.")
+              : null}
+          </FormErrorBanner>
+          <div className="grid grid-cols-2 gap-3">
+            {settingsTextFields.map((fieldConfig) => (
+              <FormField
+                control={settingsForm.control}
+                key={fieldConfig.name}
+                name={fieldConfig.name}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{fieldConfig.label}</FormLabel>
+                    <FormControl>
+                      <Input className={fieldConfig.className} type={fieldConfig.type} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             ))}
-          </select>
-          <select
-            className="rounded-md border bg-card px-3 py-2 text-sm"
-            defaultValue={project.extractionProfile}
-            name="extractionProfile"
+            <FormField
+              control={settingsForm.control}
+              name="ingestionMode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Ingestion mode</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {ingestionModeValues.map((mode) => (
+                        <SelectItem key={mode} value={mode}>
+                          {mode}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={settingsForm.control}
+              name="extractionProfile"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Extraction profile</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {extractionProfileValues.map((profile) => (
+                        <SelectItem key={profile} value={profile}>
+                          {profile}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+          <FormField
+            control={settingsForm.control}
+            name="customExtractionInstructions"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Custom extraction instructions</FormLabel>
+                <FormControl>
+                  <Textarea className="min-h-24 resize-y" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <Button
+            aria-busy={updateProjectMutation.isPending}
+            className="w-fit"
+            disabled={updateProjectMutation.isPending}
+            type="submit"
           >
-            {extractionProfileValues.map((profile) => (
-              <option key={profile} value={profile}>
-                {profile}
-              </option>
-            ))}
-          </select>
-        </div>
-        <textarea
-          className="min-h-24 rounded-md border bg-card px-3 py-2 text-sm"
-          defaultValue={project.customExtractionInstructions ?? ""}
-          name="customExtractionInstructions"
-          placeholder="Custom extraction instructions"
-        />
-        <Button disabled={updateProjectMutation.isPending} type="submit">
-          Save settings
-        </Button>
-      </form>
-      <div className="grid gap-2 rounded-md border bg-card p-4 text-sm">
-        <h3 className="flex items-center gap-2 font-semibold">
-          <BrainCircuit className="size-4" /> AI configuration
+            {updateProjectMutation.isPending ? (
+              <LoadingLabel>Saving...</LoadingLabel>
+            ) : (
+              "Save settings"
+            )}
+          </Button>
+        </form>
+      </Form>
+      <div className="card grid gap-2 p-4 text-ui">
+        <h3 className="section-title flex items-center gap-2">
+          <BrainCircuit className="size-3.75 text-purple" /> AI configuration
         </h3>
-        <p>
-          Backend: {healthQuery.data ? `${healthQuery.data.service} online` : healthQuery.status}
-        </p>
-        <p>Provider: {aiSettingsQuery.data?.provider ?? aiSettingsQuery.status}</p>
-        <p>Generation: {aiSettingsQuery.data?.generationModel ?? "loading"}</p>
-        <p>
-          Embedding:{" "}
-          {aiSettingsQuery.data
-            ? `${aiSettingsQuery.data.embeddingModel} (${aiSettingsQuery.data.embeddingDimension})`
-            : "loading"}
-        </p>
-        <p className="flex items-center gap-2">
-          {aiSettingsQuery.data?.secretStatus === "configured" ? (
-            <ShieldCheck className="size-4" />
-          ) : (
-            <TriangleAlert className="size-4" />
-          )}
-          Gemini key: {aiSettingsQuery.data?.secretStatus ?? "loading"}
-        </p>
+        {healthQuery.isLoading || aiSettingsQuery.isLoading ? (
+          <div aria-busy="true" className="grid gap-2">
+            <SkeletonBlock className="h-3 w-52" />
+            <SkeletonBlock className="h-3 w-40" />
+            <SkeletonBlock className="h-3 w-64" />
+          </div>
+        ) : null}
+        {healthQuery.isError ? (
+          <SectionError
+            message="Could not load backend status"
+            onRetry={() => void healthQuery.refetch()}
+          />
+        ) : null}
+        {aiSettingsQuery.isError ? (
+          <SectionError
+            message="Could not load AI configuration"
+            onRetry={() => void aiSettingsQuery.refetch()}
+          />
+        ) : null}
+        {healthQuery.data ? (
+          <p className="meta">Backend: {healthQuery.data.service} online</p>
+        ) : null}
+        {aiSettingsQuery.data ? (
+          <>
+            <p className="meta">Provider: {aiSettingsQuery.data.provider}</p>
+            <p className="meta">Generation: {aiSettingsQuery.data.generationModel}</p>
+            <p className="meta">
+              Embedding: {aiSettingsQuery.data.embeddingModel} (
+              {aiSettingsQuery.data.embeddingDimension})
+            </p>
+            <p className="meta flex items-center gap-2">
+              {aiSettingsQuery.data.secretStatus === "configured" ? (
+                <ShieldCheck className="size-3.25 text-primary" />
+              ) : (
+                <TriangleAlert className="size-3.25 text-amber" />
+              )}
+              Gemini key: {aiSettingsQuery.data.secretStatus}
+            </p>
+          </>
+        ) : null}
       </div>
     </section>
   );
 }
 
-function optionalField(form: FormData, name: string) {
-  const value = String(form.get(name) ?? "").trim();
-  return value.length > 0 ? value : undefined;
+type SettingsFormValues = CreateProjectRequest & {
+  customExtractionInstructions: string;
+};
+
+const settingsFormSchema = z.object({
+  name: z.string().trim().min(1, "Project name is required").max(120),
+  description: z.string().trim().max(1_000),
+  color: z.string().trim().min(1).max(32),
+  icon: z.string().trim().min(1).max(48),
+  ingestionMode: ingestionModeSchema,
+  extractionProfile: extractionProfileSchema,
+  customExtractionInstructions: z.string().trim().max(4_000)
+});
+
+const settingsTextFields: Array<{
+  className?: string;
+  label: string;
+  name: "name" | "color" | "icon" | "description";
+  type?: string;
+}> = [
+  { label: "Project name", name: "name" },
+  { className: "h-9.5 p-1", label: "Colour", name: "color", type: "color" },
+  { label: "Icon", name: "icon" },
+  { label: "Description", name: "description" }
+];
+
+function getProjectDefaults(project?: Project): SettingsFormValues {
+  return {
+    color: project?.color ?? "#C8F060",
+    customExtractionInstructions: project?.customExtractionInstructions ?? "",
+    description: project?.description ?? "",
+    extractionProfile: project?.extractionProfile ?? "general",
+    icon: project?.icon ?? "folder",
+    ingestionMode: project?.ingestionMode ?? "auto",
+    name: project?.name ?? ""
+  };
+}
+
+function optionalValue(value: string | null | undefined) {
+  const trimmed = value?.trim() ?? "";
+  return trimmed.length > 0 ? trimmed : undefined;
 }
