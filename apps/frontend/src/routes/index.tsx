@@ -1,17 +1,16 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { FileText, FolderOpen, Network, Search } from "lucide-react";
-import type { ReactNode } from "react";
-import { Button } from "@wiki/frontend/components/ui/button";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   PageError,
   ProjectGridSkeleton,
   SkeletonBlock
 } from "@wiki/frontend/components/interaction";
-import { ProjectRow } from "@wiki/frontend/modules/projects/components/project-row";
+import { Button } from "@wiki/frontend/components/ui/button";
 import { listProjects } from "@wiki/frontend/modules/projects/api";
+import { ProjectRow } from "@wiki/frontend/modules/projects/components/project-row";
 import { projectQueryKeys } from "@wiki/frontend/modules/projects/query-keys";
+import { FileText, FolderOpen, Network, Search } from "lucide-react";
+import type { ReactNode } from "react";
 
 export const Route = createFileRoute("/")({
   component: Dashboard

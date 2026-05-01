@@ -1,12 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { Link, Outlet, useParams } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, type ReactNode } from "react";
-import { Bot, Circle, FileText, Network, Search, Settings } from "lucide-react";
-import { Button } from "@wiki/frontend/components/ui/button";
+import { createFileRoute, Link, Outlet, useParams } from "@tanstack/react-router";
 import { PageError, SkeletonBlock } from "@wiki/frontend/components/interaction";
+import { Button } from "@wiki/frontend/components/ui/button";
 import { listProjects } from "@wiki/frontend/modules/projects/api";
 import { projectQueryKeys } from "@wiki/frontend/modules/projects/query-keys";
+import { Bot, Circle, FileText, Network, Search, Settings } from "lucide-react";
+import { useMemo, type ReactNode } from "react";
 
 export const Route = createFileRoute("/projects/$projectId")({
   component: ProjectLayout
@@ -44,7 +43,7 @@ function ProjectLayout() {
         <section className="content-panel">
           <div className="empty-state">
             <div>
-            <h3 className="font-serif text-display-sm italic text-muted-foreground">
+              <h3 className="font-serif text-display-sm italic text-muted-foreground">
                 This project no longer exists
               </h3>
               <Button asChild className="mt-4" variant="ghost">

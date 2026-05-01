@@ -8,6 +8,13 @@
       "when": 1777559700436,
       "tag": "0000_plain_warpath",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1777632906417,
+      "tag": "0001_wild_toxin",
+      "breakpoints": true
     }
   ]
 }

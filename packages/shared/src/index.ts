@@ -78,6 +78,22 @@ export const publicAiSettingsSchema = z.object({
 
 export type PublicAiSettings = z.infer<typeof publicAiSettingsSchema>;
 
+export const appSettingsSchema = z.object({
+  defaultIngestionMode: ingestionModeSchema,
+  ai: publicAiSettingsSchema,
+  updatedAt: z.string().datetime()
+});
+
+export type AppSettings = z.infer<typeof appSettingsSchema>;
+
+export const updateAppSettingsRequestSchema = z
+  .object({
+    defaultIngestionMode: ingestionModeSchema.optional()
+  })
+  .refine((value) => Object.keys(value).length > 0, "At least one setting is required");
+
+export type UpdateAppSettingsRequest = z.infer<typeof updateAppSettingsRequestSchema>;
+
 export const sourceMetadataSchema = z.object({
   url: z.string().url().optional(),
   title: z.string().min(1).optional(),
@@ -109,7 +125,7 @@ export const createProjectRequestSchema = z.object({
   description: z.string().trim().max(1_000).optional().default(""),
   color: z.string().trim().min(1).max(32).optional().default("#1f6feb"),
   icon: z.string().trim().min(1).max(48).optional().default("folder"),
-  ingestionMode: ingestionModeSchema.optional().default("auto"),
+  ingestionMode: ingestionModeSchema.optional(),
   extractionProfile: extractionProfileSchema.optional().default("general"),
   customExtractionInstructions: z.string().trim().max(4_000).optional().nullable()
 });

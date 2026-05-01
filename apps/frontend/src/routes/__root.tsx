@@ -1,6 +1,6 @@
 import { createRootRoute } from "@tanstack/react-router";
 import { Link, Outlet } from "@tanstack/react-router";
-import { Home, Plus, Search, Circle, FileText } from "lucide-react";
+import { Home, Plus, Search, Circle, FileText, SlidersHorizontal } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { packageName } from "@wiki/shared";
 import { listProjects } from "@wiki/frontend/modules/projects/api";
@@ -49,6 +49,10 @@ function RootLayout() {
           >
             <FileText className="size-3.25" />
             <span className="sidebar-label">Projects</span>
+          </Link>
+          <Link activeProps={{ className: "nav-row-active" }} className="nav-row mb-2" to="/settings">
+            <SlidersHorizontal className="size-3.25" />
+            <span className="sidebar-label">Settings</span>
           </Link>
           <div className="eyebrow sidebar-label mt-6 px-2">Active projects</div>
           <div

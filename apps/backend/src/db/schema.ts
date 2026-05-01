@@ -31,6 +31,15 @@ export const projects = pgTable("projects", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
 });
 
+export const appSettings = pgTable("app_settings", {
+  id: text("id").primaryKey().default("global"),
+  defaultIngestionMode: text("default_ingestion_mode", { enum: ingestionModeValues })
+    .$type<IngestionMode>()
+    .notNull()
+    .default("auto"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+});
+
 export const documents = pgTable(
   "documents",
   {

@@ -7,6 +7,8 @@ import {
 } from "@wiki/shared";
 import { db } from "@wiki/backend/db/client";
 import { projects } from "@wiki/backend/db/schema";
+import { getAppSettings } from "@wiki/backend/modules/settings/repository";
+import { env } from "@wiki/backend/env";
 
 const toIso = (value: Date) => value.toISOString();
 
@@ -37,7 +39,14 @@ export async function getProject(id: string): Promise<Project | null> {
 }
 
 export async function createProject(input: CreateProjectRequest): Promise<Project> {
-  const [row] = await db.insert(projects).values(input).returning();
+  const settings = await getAppSettings(env);
+  const [row] = await db
+    .insert(projects)
+    .values({
+      ...input,
+      ingestionMode: input.ingestionMode ?? settings.defaultIngestionMode
+    })
+    .returning();
 
   if (!row) {
     throw new Error("Project insert returned no row");

@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
-import { BrainCircuit, ShieldCheck, TriangleAlert } from "lucide-react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -36,16 +35,11 @@ import {
   FormErrorBanner,
   LoadingLabel,
   PageError,
-  SectionError,
   SkeletonBlock,
   getErrorMessage
 } from "@wiki/frontend/components/interaction";
 import { listProjects, updateProject } from "@wiki/frontend/modules/projects/api";
 import { projectQueryKeys } from "@wiki/frontend/modules/projects/query-keys";
-import { getAiSettings } from "@wiki/frontend/modules/settings/api";
-import { settingsQueryKeys } from "@wiki/frontend/modules/settings/query-keys";
-import { getHealth } from "@wiki/frontend/modules/system/api";
-import { systemQueryKeys } from "@wiki/frontend/modules/system/query-keys";
 
 export const Route = createFileRoute("/projects/$projectId/settings")({
   component: SettingsView
@@ -55,11 +49,6 @@ function SettingsView() {
   const { projectId } = useParams({ from: "/projects/$projectId" });
   const queryClient = useQueryClient();
   const projectsQuery = useQuery({ queryKey: projectQueryKeys.all, queryFn: listProjects });
-  const aiSettingsQuery = useQuery({
-    queryKey: settingsQueryKeys.ai,
-    queryFn: getAiSettings
-  });
-  const healthQuery = useQuery({ queryKey: systemQueryKeys.health, queryFn: getHealth });
   const project = projectsQuery.data?.find((candidate) => candidate.id === projectId);
   const settingsForm = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsFormSchema),
@@ -225,57 +214,17 @@ function SettingsView() {
           </Button>
         </form>
       </Form>
-      <div className="card grid gap-2 p-4 text-ui">
-        <h3 className="section-title flex items-center gap-2">
-          <BrainCircuit className="size-3.75 text-purple" /> AI configuration
-        </h3>
-        {healthQuery.isLoading || aiSettingsQuery.isLoading ? (
-          <div aria-busy="true" className="grid gap-2">
-            <SkeletonBlock className="h-3 w-52" />
-            <SkeletonBlock className="h-3 w-40" />
-            <SkeletonBlock className="h-3 w-64" />
-          </div>
-        ) : null}
-        {healthQuery.isError ? (
-          <SectionError
-            message="Could not load backend status"
-            onRetry={() => void healthQuery.refetch()}
-          />
-        ) : null}
-        {aiSettingsQuery.isError ? (
-          <SectionError
-            message="Could not load AI configuration"
-            onRetry={() => void aiSettingsQuery.refetch()}
-          />
-        ) : null}
-        {healthQuery.data ? (
-          <p className="meta">Backend: {healthQuery.data.service} online</p>
-        ) : null}
-        {aiSettingsQuery.data ? (
-          <>
-            <p className="meta">Provider: {aiSettingsQuery.data.provider}</p>
-            <p className="meta">Generation: {aiSettingsQuery.data.generationModel}</p>
-            <p className="meta">
-              Embedding: {aiSettingsQuery.data.embeddingModel} (
-              {aiSettingsQuery.data.embeddingDimension})
-            </p>
-            <p className="meta flex items-center gap-2">
-              {aiSettingsQuery.data.secretStatus === "configured" ? (
-                <ShieldCheck className="size-3.25 text-primary" />
-              ) : (
-                <TriangleAlert className="size-3.25 text-amber" />
-              )}
-              Gemini key: {aiSettingsQuery.data.secretStatus}
-            </p>
-          </>
-        ) : null}
-      </div>
     </section>
   );
 }
 
 type SettingsFormValues = CreateProjectRequest & {
+  color: string;
   customExtractionInstructions: string;
+  description: string;
+  icon: string;
+  ingestionMode: NonNullable<CreateProjectRequest["ingestionMode"]>;
+  name: string;
 };
 
 const settingsFormSchema = z.object({

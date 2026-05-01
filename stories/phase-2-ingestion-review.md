@@ -6,7 +6,7 @@ This phase implements async ingestion, Gemini markdownification, Auto and Review
 
 ## Epic 3 - Projects and App Settings
 
-### Story 3.4 - Configure Global App Settings
+### Story 3.4 - Configure Global App Settings [Completed]
 
 **Description:** As a user, I want global app settings so that defaults are durable across sessions.
 

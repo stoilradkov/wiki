@@ -1,14 +1,13 @@
 import { env } from "@wiki/backend/env";
 import { registerDocumentRoutes } from "@wiki/backend/modules/documents/routes";
 import { registerProjectRoutes } from "@wiki/backend/modules/projects/routes";
+import { registerSettingsRoutes } from "@wiki/backend/modules/settings/routes";
 import { sendValidationError } from "@wiki/backend/routes/helpers";
 import {
   createAppInfo,
-  createPublicAiSettings,
   domainEnums,
   domainEnumsSchema,
-  healthResponseSchema,
-  publicAiSettingsSchema
+  healthResponseSchema
 } from "@wiki/shared";
 import Fastify from "fastify";
 import { ZodError } from "zod";
@@ -27,9 +26,6 @@ const getHealth = async () =>
 server.get("/health", getHealth);
 server.get("/api/health", getHealth);
 server.get("/api/contracts/domain", async () => domainEnumsSchema.parse(domainEnums));
-server.get("/api/settings/ai", async () =>
-  publicAiSettingsSchema.parse(createPublicAiSettings(env))
-);
 
 server.setErrorHandler((error, request, reply) => {
   if (error instanceof ZodError) {
@@ -46,6 +42,7 @@ server.setErrorHandler((error, request, reply) => {
 
 await registerProjectRoutes(server);
 await registerDocumentRoutes(server);
+await registerSettingsRoutes(server);
 
 const port = env.PORT;
 const host = env.HOST;
