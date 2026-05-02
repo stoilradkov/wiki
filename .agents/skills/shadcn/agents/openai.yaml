@@ -1,0 +1,6 @@
+interface:
+  display_name: "shadcn/ui"
+  short_description: "Manage shadcn/ui components and styling."
+  icon_small: "./assets/shadcn-small.png"
+  icon_large: "./assets/shadcn.png"
+  default_prompt: "Use $shadcn to add, fix, or style shadcn/ui components."

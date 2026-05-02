@@ -145,3 +145,5 @@ Frontend UI uses Tailwind CSS, shadcn-style component scaffolding, lucide icons,
 Implemented: Story 1.1, Bootstrap the Workspace; Story 1.2, Run the App in Docker Development Mode; Story 13.1, Configure AI Models and Budgets; Story 14.1, Keep Secrets Backend-Only.
 
 Not implemented yet: database schema, ingestion, search, chat, and graph features.
+
+TODO continue with next story from phase-2
