@@ -1,6 +1,6 @@
 # wiki Implementation Plan
 
-This plan organizes the backlog into implementation phases for AI agents and developers. The PRD remains the product and architecture source of truth. The phase files contain actionable user stories with acceptance criteria.
+This plan organizes the backlog into implementation phases for AI agents and developers. The root PRD links to phase-scoped PRD files, and those PRD files remain the product and architecture source of truth for each phase. The story phase files contain actionable user stories with acceptance criteria.
 
 ## Phase 1 - Foundation
 
@@ -18,6 +18,7 @@ Exit criteria:
 - AI settings and secrets are configured but full ingestion can still be mocked.
 
 Detailed stories: [Phase 1 - Foundation](stories/phase-1-foundation.md)
+Phase PRD: [Phase 1 PRD](docs/prd/phase-1-foundation.md)
 
 ## Phase 2 - Ingestion and Review
 
@@ -34,6 +35,7 @@ Exit criteria:
 - Failures show meaningful error state and retry affordance.
 
 Detailed stories: [Phase 2 - Ingestion and Review](stories/phase-2-ingestion-review.md)
+Phase PRD: [Phase 2 PRD](docs/prd/phase-2-ingestion-review.md)
 
 ## Phase 3 - Search and Chat
 
@@ -50,6 +52,7 @@ Exit criteria:
 - Assistant answers cite source chunks and stay grounded in retrieved content.
 
 Detailed stories: [Phase 3 - Search and Chat](stories/phase-3-search-chat.md)
+Phase PRD: [Phase 3 PRD](docs/prd/phase-3-search-chat.md)
 
 ## Phase 4 - Structure and Graph
 
@@ -66,6 +69,7 @@ Exit criteria:
 - Graph context can assist chat when relevant.
 
 Detailed stories: [Phase 4 - Structure and Graph](stories/phase-4-structure-graph.md)
+Phase PRD: [Phase 4 PRD](docs/prd/phase-4-structure-graph.md)
 
 ## Phase 5 - Polish, Operations, and Hardening
 
@@ -82,10 +86,11 @@ Exit criteria:
 - README covers setup, privacy, backup, restore, and troubleshooting.
 
 Detailed stories: [Phase 5 - Polish, Operations, and Hardening](stories/phase-5-polish-ops.md)
+Phase PRD: [Phase 5 PRD](docs/prd/phase-5-polish-ops.md)
 
 ## Cross-Phase Rules
 
-- Keep `PRD.md` current when product or architecture decisions change.
+- Keep `PRD.md` and the relevant `docs/prd/phase-*` file current when product or architecture decisions change.
 - Keep story IDs stable even if story text is refined.
 - Prefer vertical slices that leave the app runnable after each story group.
 - Use mocked AI provider behavior for early integration tests where real Gemini calls would be slow, costly, or flaky.

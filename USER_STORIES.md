@@ -15,6 +15,6 @@
 ## Agent Guidance
 
 - Start with `IMPLEMENTATION_PLAN.md` to understand dependency order.
-- Open only the current phase file and `PRD.md` unless a story explicitly depends on another phase.
+- Open `PRD.md`, the current story phase file, and the matching `docs/prd/phase-*` file unless a story explicitly depends on another phase.
 - Keep story IDs stable in commits, branches, PR notes, and test names.
 - Do not treat later-phase stories as blockers unless a current-phase acceptance criterion explicitly depends on them.

@@ -15,8 +15,9 @@ This directory splits the user stories into implementation phases. Each phase fi
 1. Read the root `PRD.md`.
 2. Read the root `IMPLEMENTATION_PLAN.md`.
 3. Open the current phase file.
-4. Implement stories in dependency order inside that phase.
-5. Update acceptance criteria only when the product decision changes.
+4. Open the matching `docs/prd/phase-*` file.
+5. Implement stories in dependency order inside that phase.
+6. Update acceptance criteria only when the product decision changes.
 
 ## Story Format
 
