@@ -24,7 +24,7 @@ This phase implements async ingestion, Gemini markdownification, Auto and Review
 
 ## Epic 4 - Document Creation, Metadata, and Deduplication
 
-### Story 4.3 - Detect Exact Duplicates
+### Story 4.3 - Detect Exact Duplicates [Completed]
 
 **Description:** As a user, I want to be warned when I paste exact duplicate content so that I do not accidentally clutter a project.
 

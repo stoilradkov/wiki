@@ -1,7 +1,9 @@
 import type {
+  CheckDuplicateDocumentRequest,
   CreateDocumentRequest,
   Document,
   DocumentDetail,
+  DuplicateDocumentResponse,
   ListDocumentsResponse,
   UpdateDocumentMetadataRequest
 } from "@wiki/shared";
@@ -17,6 +19,22 @@ export async function createDocument(
   input: CreateDocumentRequest
 ): Promise<DocumentDetail> {
   const response = await api.post<DocumentDetail>(`/projects/${projectId}/documents`, input);
+  return response.data;
+}
+
+export async function checkDuplicateDocument(
+  projectId: string,
+  input: CheckDuplicateDocumentRequest
+): Promise<DuplicateDocumentResponse> {
+  const response = await api.post<DuplicateDocumentResponse>(
+    `/projects/${projectId}/documents/duplicates/check`,
+    input
+  );
+  return response.data;
+}
+
+export async function getDocument(projectId: string, documentId: string): Promise<DocumentDetail> {
+  const response = await api.get<DocumentDetail>(`/projects/${projectId}/documents/${documentId}`);
   return response.data;
 }
 

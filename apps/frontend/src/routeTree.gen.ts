@@ -16,8 +16,10 @@ import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projec
 import { Route as ProjectsProjectIdSettingsRouteImport } from './routes/projects/$projectId/settings'
 import { Route as ProjectsProjectIdSearchRouteImport } from './routes/projects/$projectId/search'
 import { Route as ProjectsProjectIdGraphRouteImport } from './routes/projects/$projectId/graph'
-import { Route as ProjectsProjectIdDocumentsRouteImport } from './routes/projects/$projectId/documents'
 import { Route as ProjectsProjectIdChatRouteImport } from './routes/projects/$projectId/chat'
+import { Route as ProjectsProjectIdDocumentsRouteRouteImport } from './routes/projects/$projectId/documents/route'
+import { Route as ProjectsProjectIdDocumentsIndexRouteImport } from './routes/projects/$projectId/documents/index'
+import { Route as ProjectsProjectIdDocumentsDocumentIdRouteRouteImport } from './routes/projects/$projectId/documents/$documentId/route'
 
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
@@ -55,28 +57,42 @@ const ProjectsProjectIdGraphRoute = ProjectsProjectIdGraphRouteImport.update({
   path: '/graph',
   getParentRoute: () => ProjectsProjectIdRoute,
 } as any)
-const ProjectsProjectIdDocumentsRoute =
-  ProjectsProjectIdDocumentsRouteImport.update({
-    id: '/documents',
-    path: '/documents',
-    getParentRoute: () => ProjectsProjectIdRoute,
-  } as any)
 const ProjectsProjectIdChatRoute = ProjectsProjectIdChatRouteImport.update({
   id: '/chat',
   path: '/chat',
   getParentRoute: () => ProjectsProjectIdRoute,
 } as any)
+const ProjectsProjectIdDocumentsRouteRoute =
+  ProjectsProjectIdDocumentsRouteRouteImport.update({
+    id: '/documents',
+    path: '/documents',
+    getParentRoute: () => ProjectsProjectIdRoute,
+  } as any)
+const ProjectsProjectIdDocumentsIndexRoute =
+  ProjectsProjectIdDocumentsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => ProjectsProjectIdDocumentsRouteRoute,
+  } as any)
+const ProjectsProjectIdDocumentsDocumentIdRouteRoute =
+  ProjectsProjectIdDocumentsDocumentIdRouteRouteImport.update({
+    id: '/$documentId',
+    path: '/$documentId',
+    getParentRoute: () => ProjectsProjectIdDocumentsRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/settings': typeof SettingsRoute
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
+  '/projects/$projectId/documents': typeof ProjectsProjectIdDocumentsRouteRouteWithChildren
   '/projects/$projectId/chat': typeof ProjectsProjectIdChatRoute
-  '/projects/$projectId/documents': typeof ProjectsProjectIdDocumentsRoute
   '/projects/$projectId/graph': typeof ProjectsProjectIdGraphRoute
   '/projects/$projectId/search': typeof ProjectsProjectIdSearchRoute
   '/projects/$projectId/settings': typeof ProjectsProjectIdSettingsRoute
+  '/projects/$projectId/documents/$documentId': typeof ProjectsProjectIdDocumentsDocumentIdRouteRoute
+  '/projects/$projectId/documents/': typeof ProjectsProjectIdDocumentsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -84,10 +100,11 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
   '/projects/$projectId/chat': typeof ProjectsProjectIdChatRoute
-  '/projects/$projectId/documents': typeof ProjectsProjectIdDocumentsRoute
   '/projects/$projectId/graph': typeof ProjectsProjectIdGraphRoute
   '/projects/$projectId/search': typeof ProjectsProjectIdSearchRoute
   '/projects/$projectId/settings': typeof ProjectsProjectIdSettingsRoute
+  '/projects/$projectId/documents/$documentId': typeof ProjectsProjectIdDocumentsDocumentIdRouteRoute
+  '/projects/$projectId/documents': typeof ProjectsProjectIdDocumentsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -95,11 +112,13 @@ export interface FileRoutesById {
   '/projects': typeof ProjectsRouteWithChildren
   '/settings': typeof SettingsRoute
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
+  '/projects/$projectId/documents': typeof ProjectsProjectIdDocumentsRouteRouteWithChildren
   '/projects/$projectId/chat': typeof ProjectsProjectIdChatRoute
-  '/projects/$projectId/documents': typeof ProjectsProjectIdDocumentsRoute
   '/projects/$projectId/graph': typeof ProjectsProjectIdGraphRoute
   '/projects/$projectId/search': typeof ProjectsProjectIdSearchRoute
   '/projects/$projectId/settings': typeof ProjectsProjectIdSettingsRoute
+  '/projects/$projectId/documents/$documentId': typeof ProjectsProjectIdDocumentsDocumentIdRouteRoute
+  '/projects/$projectId/documents/': typeof ProjectsProjectIdDocumentsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -108,11 +127,13 @@ export interface FileRouteTypes {
     | '/projects'
     | '/settings'
     | '/projects/$projectId'
-    | '/projects/$projectId/chat'
     | '/projects/$projectId/documents'
+    | '/projects/$projectId/chat'
     | '/projects/$projectId/graph'
     | '/projects/$projectId/search'
     | '/projects/$projectId/settings'
+    | '/projects/$projectId/documents/$documentId'
+    | '/projects/$projectId/documents/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -120,21 +141,24 @@ export interface FileRouteTypes {
     | '/settings'
     | '/projects/$projectId'
     | '/projects/$projectId/chat'
-    | '/projects/$projectId/documents'
     | '/projects/$projectId/graph'
     | '/projects/$projectId/search'
     | '/projects/$projectId/settings'
+    | '/projects/$projectId/documents/$documentId'
+    | '/projects/$projectId/documents'
   id:
     | '__root__'
     | '/'
     | '/projects'
     | '/settings'
     | '/projects/$projectId'
-    | '/projects/$projectId/chat'
     | '/projects/$projectId/documents'
+    | '/projects/$projectId/chat'
     | '/projects/$projectId/graph'
     | '/projects/$projectId/search'
     | '/projects/$projectId/settings'
+    | '/projects/$projectId/documents/$documentId'
+    | '/projects/$projectId/documents/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -194,13 +218,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsProjectIdGraphRouteImport
       parentRoute: typeof ProjectsProjectIdRoute
     }
-    '/projects/$projectId/documents': {
-      id: '/projects/$projectId/documents'
-      path: '/documents'
-      fullPath: '/projects/$projectId/documents'
-      preLoaderRoute: typeof ProjectsProjectIdDocumentsRouteImport
-      parentRoute: typeof ProjectsProjectIdRoute
-    }
     '/projects/$projectId/chat': {
       id: '/projects/$projectId/chat'
       path: '/chat'
@@ -208,20 +225,59 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsProjectIdChatRouteImport
       parentRoute: typeof ProjectsProjectIdRoute
     }
+    '/projects/$projectId/documents': {
+      id: '/projects/$projectId/documents'
+      path: '/documents'
+      fullPath: '/projects/$projectId/documents'
+      preLoaderRoute: typeof ProjectsProjectIdDocumentsRouteRouteImport
+      parentRoute: typeof ProjectsProjectIdRoute
+    }
+    '/projects/$projectId/documents/': {
+      id: '/projects/$projectId/documents/'
+      path: '/'
+      fullPath: '/projects/$projectId/documents/'
+      preLoaderRoute: typeof ProjectsProjectIdDocumentsIndexRouteImport
+      parentRoute: typeof ProjectsProjectIdDocumentsRouteRoute
+    }
+    '/projects/$projectId/documents/$documentId': {
+      id: '/projects/$projectId/documents/$documentId'
+      path: '/$documentId'
+      fullPath: '/projects/$projectId/documents/$documentId'
+      preLoaderRoute: typeof ProjectsProjectIdDocumentsDocumentIdRouteRouteImport
+      parentRoute: typeof ProjectsProjectIdDocumentsRouteRoute
+    }
   }
 }
 
+interface ProjectsProjectIdDocumentsRouteRouteChildren {
+  ProjectsProjectIdDocumentsDocumentIdRouteRoute: typeof ProjectsProjectIdDocumentsDocumentIdRouteRoute
+  ProjectsProjectIdDocumentsIndexRoute: typeof ProjectsProjectIdDocumentsIndexRoute
+}
+
+const ProjectsProjectIdDocumentsRouteRouteChildren: ProjectsProjectIdDocumentsRouteRouteChildren =
+  {
+    ProjectsProjectIdDocumentsDocumentIdRouteRoute:
+      ProjectsProjectIdDocumentsDocumentIdRouteRoute,
+    ProjectsProjectIdDocumentsIndexRoute: ProjectsProjectIdDocumentsIndexRoute,
+  }
+
+const ProjectsProjectIdDocumentsRouteRouteWithChildren =
+  ProjectsProjectIdDocumentsRouteRoute._addFileChildren(
+    ProjectsProjectIdDocumentsRouteRouteChildren,
+  )
+
 interface ProjectsProjectIdRouteChildren {
+  ProjectsProjectIdDocumentsRouteRoute: typeof ProjectsProjectIdDocumentsRouteRouteWithChildren
   ProjectsProjectIdChatRoute: typeof ProjectsProjectIdChatRoute
-  ProjectsProjectIdDocumentsRoute: typeof ProjectsProjectIdDocumentsRoute
   ProjectsProjectIdGraphRoute: typeof ProjectsProjectIdGraphRoute
   ProjectsProjectIdSearchRoute: typeof ProjectsProjectIdSearchRoute
   ProjectsProjectIdSettingsRoute: typeof ProjectsProjectIdSettingsRoute
 }
 
 const ProjectsProjectIdRouteChildren: ProjectsProjectIdRouteChildren = {
+  ProjectsProjectIdDocumentsRouteRoute:
+    ProjectsProjectIdDocumentsRouteRouteWithChildren,
   ProjectsProjectIdChatRoute: ProjectsProjectIdChatRoute,
-  ProjectsProjectIdDocumentsRoute: ProjectsProjectIdDocumentsRoute,
   ProjectsProjectIdGraphRoute: ProjectsProjectIdGraphRoute,
   ProjectsProjectIdSearchRoute: ProjectsProjectIdSearchRoute,
   ProjectsProjectIdSettingsRoute: ProjectsProjectIdSettingsRoute,

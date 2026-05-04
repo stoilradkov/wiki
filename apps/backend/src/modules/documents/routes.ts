@@ -1,13 +1,16 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import {
+  checkDuplicateDocumentRequestSchema,
   createDocumentRequestSchema,
   documentDetailSchema,
+  duplicateDocumentResponseSchema,
   listDocumentsResponseSchema,
   updateDocumentMetadataRequestSchema
 } from "@wiki/shared";
 import {
   createDocument,
+  findDuplicateDocument,
   getDocument,
   listDocuments,
   updateDocumentMetadata
@@ -42,6 +45,17 @@ export async function registerDocumentRoutes(server: FastifyInstance) {
     const body = parseBody(request, createDocumentRequestSchema);
     const document = await createDocument(projectId, project.ingestionMode, body);
     return reply.status(201).send(documentDetailSchema.parse(document));
+  });
+
+  server.post("/api/projects/:projectId/documents/duplicates/check", async (request, reply) => {
+    const { projectId } = parseParams(request, projectParamsSchema);
+
+    if (!(await getProject(projectId))) {
+      return reply.status(404).send({ error: "not_found", message: "Project not found" });
+    }
+
+    const body = parseBody(request, checkDuplicateDocumentRequestSchema);
+    return duplicateDocumentResponseSchema.parse(await findDuplicateDocument(projectId, body));
   });
 
   server.get("/api/projects/:projectId/documents/:documentId", async (request, reply) => {

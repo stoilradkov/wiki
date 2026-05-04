@@ -1,4 +1,6 @@
+import { Link } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { ExternalLink } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -90,14 +92,29 @@ export function DocumentRow({
     >
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
-          <h4 className="truncate text-ui font-medium text-foreground">
+          <Link
+            className="block truncate text-ui font-medium text-foreground hover:text-accent"
+            params={{ documentId: document.id, projectId }}
+            to="/projects/$projectId/documents/$documentId"
+          >
             {document.title ?? "Untitled document"}
-          </h4>
+          </Link>
           <p className="meta mt-1">
             {document.pipelineStage ?? "no stage"} / {new Date(document.createdAt).toLocaleString()}
           </p>
         </div>
-        <DocumentStatusBadge status={document.status} />
+        <div className="flex shrink-0 items-center gap-2">
+          <Button asChild size="sm" variant="ghost">
+            <Link
+              params={{ documentId: document.id, projectId }}
+              to="/projects/$projectId/documents/$documentId"
+            >
+              <ExternalLink className="size-3.75" />
+              Open
+            </Link>
+          </Button>
+          <DocumentStatusBadge status={document.status} />
+        </div>
       </div>
       <p className="line-clamp-2 text-caption leading-relaxed text-muted-foreground">
         {document.sourceMetadata.note ?? document.sourceMetadata.title ?? "No source preview"}

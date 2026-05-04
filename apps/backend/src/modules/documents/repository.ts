@@ -1,25 +1,21 @@
-import { createHash } from "node:crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { db } from "@wiki/backend/db/client";
+import { documents, ingestionJobs } from "@wiki/backend/db/schema";
 import {
   documentDetailSchema,
   documentSchema,
+  duplicateDocumentResponseSchema,
+  type CheckDuplicateDocumentRequest,
   type CreateDocumentRequest,
   type Document,
   type DocumentDetail,
+  type DuplicateDocumentResponse,
   type IngestionMode,
-  type SourceMetadata,
   type UpdateDocumentMetadataRequest
 } from "@wiki/shared";
-import { db } from "@wiki/backend/db/client";
-import { documents, ingestionJobs } from "@wiki/backend/db/schema";
+import { and, desc, eq } from "drizzle-orm";
+import { createHash } from "node:crypto";
 
 const toIso = (value: Date) => value.toISOString();
-
-function cleanMetadata(metadata: SourceMetadata | undefined): SourceMetadata {
-  return Object.fromEntries(
-    Object.entries(metadata ?? {}).filter(([, value]) => value !== undefined && value !== "")
-  ) as SourceMetadata;
-}
 
 function mapDocument(row: typeof documents.$inferSelect): Document {
   return documentSchema.parse({
@@ -42,6 +38,10 @@ function mapDocumentDetail(row: typeof documents.$inferSelect): DocumentDetail {
     ...mapDocument(row),
     rawContent: row.rawContent
   });
+}
+
+function hashRawContent(rawContent: string): string {
+  return createHash("sha256").update(rawContent).digest("hex");
 }
 
 export async function listDocuments(projectId: string): Promise<Document[]> {
@@ -67,12 +67,33 @@ export async function getDocument(
   return row ? mapDocumentDetail(row) : null;
 }
 
+export async function findDuplicateDocument(
+  projectId: string,
+  input: CheckDuplicateDocumentRequest
+): Promise<DuplicateDocumentResponse> {
+  const [row] = await db
+    .select()
+    .from(documents)
+    .where(
+      and(
+        eq(documents.projectId, projectId),
+        eq(documents.rawContentHash, hashRawContent(input.rawContent))
+      )
+    )
+    .orderBy(desc(documents.updatedAt))
+    .limit(1);
+
+  return duplicateDocumentResponseSchema.parse({
+    duplicate: row ? mapDocument(row) : null
+  });
+}
+
 export async function createDocument(
   projectId: string,
   projectIngestionMode: IngestionMode,
   input: CreateDocumentRequest
 ): Promise<DocumentDetail> {
-  const rawContentHash = createHash("sha256").update(input.rawContent).digest("hex");
+  const rawContentHash = hashRawContent(input.rawContent);
   const ingestionMode = input.ingestionMode ?? projectIngestionMode;
   const [row] = await db
     .insert(documents)
@@ -84,7 +105,7 @@ export async function createDocument(
       status: "queued",
       pipelineStage: "markdownify",
       ingestionMode,
-      sourceMetadata: cleanMetadata(input.sourceMetadata)
+      sourceMetadata: input.sourceMetadata
     })
     .returning();
 
@@ -108,9 +129,7 @@ export async function updateDocumentMetadata(
 ): Promise<DocumentDetail | null> {
   const update = {
     ...(input.title !== undefined ? { title: input.title } : {}),
-    ...(input.sourceMetadata !== undefined
-      ? { sourceMetadata: cleanMetadata(input.sourceMetadata) }
-      : {}),
+    ...(input.sourceMetadata !== undefined ? { sourceMetadata: input.sourceMetadata } : {}),
     updatedAt: new Date()
   };
 

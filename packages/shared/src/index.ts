@@ -175,6 +175,20 @@ export const createDocumentRequestSchema = z.object({
 
 export type CreateDocumentRequest = z.infer<typeof createDocumentRequestSchema>;
 
+export const checkDuplicateDocumentRequestSchema = z.object({
+  rawContent: z.string().trim().min(1)
+});
+
+export type CheckDuplicateDocumentRequest = z.infer<
+  typeof checkDuplicateDocumentRequestSchema
+>;
+
+export const duplicateDocumentResponseSchema = z.object({
+  duplicate: documentSchema.nullable()
+});
+
+export type DuplicateDocumentResponse = z.infer<typeof duplicateDocumentResponseSchema>;
+
 export const updateDocumentMetadataRequestSchema = z.object({
   title: z.string().trim().min(1).max(240).optional().nullable(),
   sourceMetadata: sourceMetadataSchema.optional()

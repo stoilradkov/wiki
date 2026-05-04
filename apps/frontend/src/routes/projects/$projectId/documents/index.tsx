@@ -2,10 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { FilePlus2 } from "lucide-react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import type { CreateDocumentRequest, SourceMetadata } from "@wiki/shared";
+import type { CreateDocumentRequest, Document, SourceMetadata } from "@wiki/shared";
 import { Button } from "@wiki/frontend/components/ui/button";
 import {
   Form,
@@ -25,17 +26,24 @@ import {
   PageError,
   getErrorMessage
 } from "@wiki/frontend/components/interaction";
-import { createDocument, listDocuments } from "@wiki/frontend/modules/documents/api";
+import {
+  checkDuplicateDocument,
+  createDocument,
+  listDocuments
+} from "@wiki/frontend/modules/documents/api";
 import { documentQueryKeys } from "@wiki/frontend/modules/documents/query-keys";
 import { DocumentRow } from "@wiki/frontend/routes/projects/$projectId/documents/-components/document-row";
+import { DuplicateDocumentDialog } from "@wiki/frontend/routes/projects/$projectId/documents/-components/duplicate-document-dialog";
 
-export const Route = createFileRoute("/projects/$projectId/documents")({
+export const Route = createFileRoute("/projects/$projectId/documents/")({
   component: DocumentsView
 });
 
 function DocumentsView() {
   const { projectId } = useParams({ from: "/projects/$projectId" });
   const queryClient = useQueryClient();
+  const [pendingDocument, setPendingDocument] = useState<CreateDocumentRequest | null>(null);
+  const [duplicateDocument, setDuplicateDocument] = useState<Document | null>(null);
   const documentForm = useForm<DocumentFormValues>({
     resolver: zodResolver(documentFormSchema),
     defaultValues: {
@@ -56,6 +64,9 @@ function DocumentsView() {
     mutationFn: (input: CreateDocumentRequest) => createDocument(projectId, input),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: documentQueryKeys.all(projectId) })
   });
+  const duplicateCheckMutation = useMutation({
+    mutationFn: (input: { rawContent: string }) => checkDuplicateDocument(projectId, input)
+  });
 
   function handlePaste(values: DocumentFormValues) {
     const metadata: SourceMetadata = {
@@ -66,16 +77,41 @@ function DocumentsView() {
       url: optionalValue(values.sourceUrl)
     };
 
-    createDocumentMutation.mutate(
+    const input: CreateDocumentRequest = {
+      rawContent: values.rawContent,
+      title: optionalValue(values.title),
+      sourceMetadata: metadata
+    };
+
+    setPendingDocument(input);
+    duplicateCheckMutation.mutate(
+      { rawContent: values.rawContent },
       {
-        rawContent: values.rawContent,
-        title: optionalValue(values.title),
-        sourceMetadata: metadata
-      },
-      {
-        onSuccess: () => documentForm.reset()
+        onSuccess: (result) => {
+          if (result.duplicate) {
+            setDuplicateDocument(result.duplicate);
+            return;
+          }
+
+          queueDocument(input);
+        }
       }
     );
+  }
+
+  function queueDocument(input: CreateDocumentRequest) {
+    createDocumentMutation.mutate(input, {
+      onSuccess: () => {
+        documentForm.reset();
+        setPendingDocument(null);
+        setDuplicateDocument(null);
+      }
+    });
+  }
+
+  function handleCancelDuplicate() {
+    setDuplicateDocument(null);
+    setPendingDocument(null);
   }
 
   return (
@@ -85,11 +121,11 @@ function DocumentsView() {
           <div className="flex items-center justify-between">
             <h3 className="section-title">Paste document</h3>
             <Button
-              aria-busy={createDocumentMutation.isPending}
-              disabled={createDocumentMutation.isPending}
+              aria-busy={createDocumentMutation.isPending || duplicateCheckMutation.isPending}
+              disabled={createDocumentMutation.isPending || duplicateCheckMutation.isPending}
               type="submit"
             >
-              {createDocumentMutation.isPending ? (
+              {createDocumentMutation.isPending || duplicateCheckMutation.isPending ? (
                 <LoadingLabel>Queueing...</LoadingLabel>
               ) : (
                 <>
@@ -105,7 +141,12 @@ function DocumentsView() {
                   createDocumentMutation.error,
                   "Could not queue document. Try again."
                 )
-              : null}
+              : duplicateCheckMutation.isError
+                ? getErrorMessage(
+                    duplicateCheckMutation.error,
+                    "Could not check for duplicates. Try again."
+                  )
+                : null}
           </FormErrorBanner>
           <div className="grid grid-cols-2 gap-3">
             {documentTextFields.map((fieldConfig) => (
@@ -156,6 +197,14 @@ function DocumentsView() {
           <p className="card p-4 text-ui text-muted-foreground">No documents queued yet.</p>
         ) : null}
       </div>
+      <DuplicateDocumentDialog
+        creating={createDocumentMutation.isPending}
+        duplicate={duplicateDocument}
+        onCancel={handleCancelDuplicate}
+        onCreateAnyway={() => (pendingDocument ? queueDocument(pendingDocument) : undefined)}
+        open={Boolean(duplicateDocument)}
+        projectId={projectId}
+      />
     </section>
   );
 }

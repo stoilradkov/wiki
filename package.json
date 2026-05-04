@@ -15,6 +15,7 @@
     "docker:infra:down": "docker compose -f docker-compose.dev.yml stop postgres redis",
     "db:generate": "pnpm --filter @wiki/backend db:generate",
     "db:migrate": "pnpm --filter @wiki/backend db:migrate",
+    "db:studio": "pnpm --filter @wiki/backend db:studio",
     "build": "pnpm -r build",
     "format": "prettier --write .",
     "test": "pnpm -r test",
