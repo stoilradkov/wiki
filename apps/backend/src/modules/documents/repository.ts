@@ -1,9 +1,10 @@
 import { db } from "@wiki/backend/db/client";
-import { documents, ingestionJobs } from "@wiki/backend/db/schema";
+import { documents, ingestionJobs, markdownVersions } from "@wiki/backend/db/schema";
 import {
   documentDetailSchema,
   documentSchema,
   duplicateDocumentResponseSchema,
+  markdownVersionSchema,
   type CheckDuplicateDocumentRequest,
   type CreateDocumentRequest,
   type DocumentStatus,
@@ -11,6 +12,8 @@ import {
   type DocumentDetail,
   type DuplicateDocumentResponse,
   type IngestionMode,
+  type MarkdownifyResult,
+  type MarkdownVersion,
   type PipelineStage,
   type UpdateDocumentMetadataRequest
 } from "@wiki/shared";
@@ -35,15 +38,46 @@ function mapDocument(row: typeof documents.$inferSelect): Document {
   });
 }
 
-function mapDocumentDetail(row: typeof documents.$inferSelect): DocumentDetail {
+function mapMarkdownVersion(row: typeof markdownVersions.$inferSelect): MarkdownVersion {
+  return markdownVersionSchema.parse({
+    id: row.id,
+    documentId: row.documentId,
+    versionNumber: row.versionNumber,
+    markdown: row.markdown,
+    markdownHash: row.markdownHash,
+    author: row.author,
+    createdAt: toIso(row.createdAt)
+  });
+}
+
+function mapDocumentDetail(
+  row: typeof documents.$inferSelect,
+  currentMarkdownVersion: MarkdownVersion | null
+): DocumentDetail {
   return documentDetailSchema.parse({
     ...mapDocument(row),
-    rawContent: row.rawContent
+    rawContent: row.rawContent,
+    currentMarkdownVersion
   });
 }
 
 function hashRawContent(rawContent: string): string {
   return createHash("sha256").update(rawContent).digest("hex");
+}
+
+function hashMarkdown(markdown: string): string {
+  return createHash("sha256").update(markdown).digest("hex");
+}
+
+async function getCurrentMarkdownVersion(documentId: string): Promise<MarkdownVersion | null> {
+  const [row] = await db
+    .select()
+    .from(markdownVersions)
+    .where(eq(markdownVersions.documentId, documentId))
+    .orderBy(desc(markdownVersions.versionNumber))
+    .limit(1);
+
+  return row ? mapMarkdownVersion(row) : null;
 }
 
 export async function listDocuments(projectId: string): Promise<Document[]> {
@@ -66,7 +100,7 @@ export async function getDocument(
     .where(and(eq(documents.projectId, projectId), eq(documents.id, documentId)))
     .limit(1);
 
-  return row ? mapDocumentDetail(row) : null;
+  return row ? mapDocumentDetail(row, await getCurrentMarkdownVersion(row.id)) : null;
 }
 
 export async function findDuplicateDocument(
@@ -121,7 +155,7 @@ export async function createDocument(
     payload: { projectId, ingestionMode }
   });
 
-  return mapDocumentDetail(row);
+  return mapDocumentDetail(row, null);
 }
 
 export async function deleteDocument(documentId: string): Promise<void> {
@@ -145,7 +179,7 @@ export async function updateDocumentMetadata(
     .where(and(eq(documents.projectId, projectId), eq(documents.id, documentId)))
     .returning();
 
-  return row ? mapDocumentDetail(row) : null;
+  return row ? mapDocumentDetail(row, await getCurrentMarkdownVersion(row.id)) : null;
 }
 
 export async function updateDocumentProgress(
@@ -167,11 +201,73 @@ export async function updateDocumentProgress(
     throw new Error("Document progress update returned no row");
   }
 
-  return mapDocumentDetail(row);
+  return mapDocumentDetail(row, await getCurrentMarkdownVersion(row.id));
 }
 
 export async function markDocumentEnqueueFailed(documentId: string): Promise<DocumentDetail> {
   return updateDocumentProgress(documentId, "failed", "markdownify");
+}
+
+export async function createMarkdownVersionFromMarkdownify(
+  documentId: string,
+  result: MarkdownifyResult
+): Promise<DocumentDetail> {
+  const markdownHash = hashMarkdown(result.markdown);
+  const [updatedDocument, currentVersion] = await db.transaction(async (transaction) => {
+    const [documentRow] = await transaction
+      .select()
+      .from(documents)
+      .where(eq(documents.id, documentId))
+      .limit(1);
+
+    if (!documentRow) {
+      throw new Error("Document not found for markdown version");
+    }
+
+    const [previousVersion] = await transaction
+      .select()
+      .from(markdownVersions)
+      .where(eq(markdownVersions.documentId, documentId))
+      .orderBy(desc(markdownVersions.versionNumber))
+      .limit(1);
+
+    const title = documentRow.title?.trim() ? documentRow.title : result.title;
+    const [row] = await transaction
+      .update(documents)
+      .set({
+        title,
+        updatedAt: new Date()
+      })
+      .where(eq(documents.id, documentId))
+      .returning();
+
+    if (!row) {
+      throw new Error("Document markdown update returned no row");
+    }
+
+    if (previousVersion?.markdownHash === markdownHash) {
+      return [row, previousVersion];
+    }
+
+    const [versionRow] = await transaction
+      .insert(markdownVersions)
+      .values({
+        documentId,
+        versionNumber: previousVersion ? previousVersion.versionNumber + 1 : 1,
+        markdown: result.markdown,
+        markdownHash,
+        author: "ai"
+      })
+      .returning();
+
+    if (!versionRow) {
+      throw new Error("Markdown version insert returned no row");
+    }
+
+    return [row, versionRow];
+  });
+
+  return mapDocumentDetail(updatedDocument, mapMarkdownVersion(currentVersion));
 }
 
 export async function updateIngestionJobStatus(

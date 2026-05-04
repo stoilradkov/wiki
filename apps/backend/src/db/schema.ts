@@ -6,10 +6,20 @@ import {
   type DocumentStatus,
   type ExtractionProfile,
   type IngestionMode,
+  type MarkdownVersionAuthor,
   type PipelineStage,
   type SourceMetadata
 } from "@wiki/shared";
-import { boolean, index, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uuid
+} from "drizzle-orm/pg-core";
 
 export const projects = pgTable("projects", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -78,4 +88,26 @@ export const ingestionJobs = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
   },
   (table) => [index("ingestion_jobs_document_id_idx").on(table.documentId)]
+);
+
+export const markdownVersions = pgTable(
+  "markdown_versions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    versionNumber: integer("version_number").notNull(),
+    markdown: text("markdown").notNull(),
+    markdownHash: text("markdown_hash").notNull(),
+    author: text("author", { enum: ["ai", "user"] })
+      .$type<MarkdownVersionAuthor>()
+      .notNull()
+      .default("ai"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    index("markdown_versions_document_id_idx").on(table.documentId),
+    index("markdown_versions_markdown_hash_idx").on(table.markdownHash)
+  ]
 );

@@ -73,7 +73,7 @@ This phase implements async ingestion, Gemini markdownification, Auto and Review
 - Worker concurrency is configurable.
 - Job progress is reflected in document status and stage.
 
-### Story 5.2 - Markdownify Raw Content
+### Story 5.2 - Markdownify Raw Content [completed]
 
 **Description:** As a user, I want pasted text cleaned into structured markdown so that my wiki remains readable and organized.
 

@@ -40,7 +40,7 @@ Frontend code must use `/api/settings/ai` for provider and model visibility. Tha
 These knobs can be changed in `.env` without exposing secrets to the browser:
 
 ```text
-AI_GENERATION_MODEL=gemini-3-flash
+AI_GENERATION_MODEL=gemini-3.1-flash-lite-preview
 AI_EMBEDDING_MODEL=gemini-embedding-002
 AI_EMBEDDING_DIMENSION=768
 AI_THINKING_BUDGET_MARKDOWNIFY=256

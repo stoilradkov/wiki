@@ -10,6 +10,12 @@ import {
   pipelineStageValues,
   predicateValues
 } from "@wiki/shared/domain";
+import {
+  createDocumentRequestSchema,
+  documentDetailSchema,
+  markdownifyResultSchema,
+  markdownVersionSchema
+} from "@wiki/shared";
 
 describe("shared domain enums", () => {
   it("covers the v1 document statuses and pipeline stages", () => {
@@ -99,5 +105,51 @@ describe("shared domain enums", () => {
   it("rejects unknown enum values", () => {
     expect(() => documentStatusSchema.parse("archived")).toThrow();
     expect(() => eventTypeSchema.parse("unknown_event")).toThrow();
+  });
+
+  it("validates markdownification output and document markdown versions", () => {
+    const markdownVersion = markdownVersionSchema.parse({
+      id: "00000000-0000-4000-8000-000000000001",
+      documentId: "00000000-0000-4000-8000-000000000002",
+      versionNumber: 1,
+      markdown: "# Full Notes\n\n- Detail preserved",
+      markdownHash: "abc123",
+      author: "ai",
+      createdAt: "2026-05-04T00:00:00.000Z"
+    });
+
+    expect(
+      markdownifyResultSchema.parse({
+        title: "Full Notes",
+        markdown: markdownVersion.markdown
+      })
+    ).toEqual({
+      title: "Full Notes",
+      markdown: markdownVersion.markdown
+    });
+
+    expect(
+      documentDetailSchema.parse({
+        id: "00000000-0000-4000-8000-000000000003",
+        projectId: "00000000-0000-4000-8000-000000000004",
+        title: "Full Notes",
+        status: "ready",
+        pipelineStage: "complete",
+        ingestionMode: "auto",
+        sourceMetadata: {},
+        rawContentStored: true,
+        rawContentHash: "raw123",
+        rawContent: "Full Notes\nDetail preserved",
+        currentMarkdownVersion: markdownVersion,
+        createdAt: "2026-05-04T00:00:00.000Z",
+        updatedAt: "2026-05-04T00:00:00.000Z"
+      }).currentMarkdownVersion
+    ).toEqual(markdownVersion);
+  });
+
+  it("preserves pasted raw content during validation", () => {
+    const rawContent = "\n  Important pasted text with original spacing.  \n";
+    expect(createDocumentRequestSchema.parse({ rawContent }).rawContent).toBe(rawContent);
+    expect(() => createDocumentRequestSchema.parse({ rawContent: "   " })).toThrow();
   });
 });

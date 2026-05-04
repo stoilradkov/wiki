@@ -160,15 +160,44 @@ export const documentSchema = z.object({
 
 export type Document = z.infer<typeof documentSchema>;
 
+export const markdownVersionAuthorValues = ["ai", "user"] as const;
+
+export const markdownVersionAuthorSchema = z.enum(markdownVersionAuthorValues);
+
+export type MarkdownVersionAuthor = z.infer<typeof markdownVersionAuthorSchema>;
+
+export const markdownVersionSchema = z.object({
+  id: z.string().uuid(),
+  documentId: z.string().uuid(),
+  versionNumber: z.number().int().min(1),
+  markdown: z.string().min(1),
+  markdownHash: z.string().min(1),
+  author: markdownVersionAuthorSchema,
+  createdAt: z.string().datetime()
+});
+
+export type MarkdownVersion = z.infer<typeof markdownVersionSchema>;
+
 export const documentDetailSchema = documentSchema.extend({
-  rawContent: z.string().nullable()
+  rawContent: z.string().nullable(),
+  currentMarkdownVersion: markdownVersionSchema.nullable()
 });
 
 export type DocumentDetail = z.infer<typeof documentDetailSchema>;
 
+export const markdownifyResultSchema = z.object({
+  title: z.string().trim().min(1).max(240),
+  markdown: z.string().trim().min(1)
+});
+
+export type MarkdownifyResult = z.infer<typeof markdownifyResultSchema>;
+
 export const createDocumentRequestSchema = z.object({
   title: z.string().trim().min(1).max(240).optional(),
-  rawContent: z.string().trim().min(1),
+  rawContent: z
+    .string()
+    .min(1)
+    .refine((value) => value.trim().length > 0, "Raw content is required"),
   sourceMetadata: sourceMetadataSchema.optional().default({}),
   ingestionMode: ingestionModeSchema.optional()
 });
@@ -176,12 +205,13 @@ export const createDocumentRequestSchema = z.object({
 export type CreateDocumentRequest = z.infer<typeof createDocumentRequestSchema>;
 
 export const checkDuplicateDocumentRequestSchema = z.object({
-  rawContent: z.string().trim().min(1)
+  rawContent: z
+    .string()
+    .min(1)
+    .refine((value) => value.trim().length > 0, "Raw content is required")
 });
 
-export type CheckDuplicateDocumentRequest = z.infer<
-  typeof checkDuplicateDocumentRequestSchema
->;
+export type CheckDuplicateDocumentRequest = z.infer<typeof checkDuplicateDocumentRequestSchema>;
 
 export const duplicateDocumentResponseSchema = z.object({
   duplicate: documentSchema.nullable()

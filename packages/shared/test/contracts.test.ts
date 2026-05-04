@@ -50,7 +50,7 @@ describe("shared bootstrap contracts", () => {
       REDIS_URL: "redis://127.0.0.1:6379",
       GEMINI_API_KEY: undefined,
       AI_PROVIDER: "gemini",
-      AI_GENERATION_MODEL: "gemini-3-flash",
+      AI_GENERATION_MODEL: "gemini-3.1-flash-lite-preview",
       AI_EMBEDDING_MODEL: "gemini-embedding-002",
       AI_EMBEDDING_DIMENSION: 768,
       AI_THINKING_BUDGET_MARKDOWNIFY: 256,
@@ -97,7 +97,7 @@ describe("shared bootstrap contracts", () => {
 
     expect(settings).toEqual({
       provider: "gemini",
-      generationModel: "gemini-3-flash",
+      generationModel: "gemini-3.1-flash-lite-preview",
       embeddingModel: "gemini-embedding-002",
       embeddingDimension: 768,
       thinkingBudgets: {

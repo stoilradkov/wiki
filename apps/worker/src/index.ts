@@ -11,9 +11,12 @@ import {
   type PipelineStage
 } from "@wiki/shared";
 import {
+  createMarkdownVersionFromMarkdownify,
+  getDocument,
   updateDocumentProgress,
   updateIngestionJobStatus
 } from "@wiki/backend/modules/documents/repository";
+import { markdownifyRawContent } from "@wiki/worker/markdownify";
 
 async function updateStage(
   documentId: string,
@@ -31,6 +34,16 @@ async function processDocument(
 ): Promise<void> {
   await updateIngestionJobStatus(data.documentId, "processing");
   await updateStage(data.documentId, "markdownify", progress, 10);
+  const document = await getDocument(data.projectId, data.documentId);
+
+  if (!document?.rawContent) {
+    throw new Error("Document raw content not found for markdownification");
+  }
+
+  const markdownifyResult = await markdownifyRawContent(document.rawContent);
+  await createMarkdownVersionFromMarkdownify(data.documentId, markdownifyResult);
+  await progress(30);
+
   await updateStage(data.documentId, "review", progress, 35);
 
   if (data.ingestionMode === "review") {
@@ -92,7 +105,7 @@ if (!env.GEMINI_API_KEY) {
       level: "warn",
       service: "worker",
       message:
-        "GEMINI_API_KEY is not configured. Markdownification currently uses mocked stage transitions until AI ingestion is wired."
+        "GEMINI_API_KEY is not configured. Markdownification jobs will fail until it is set in the worker environment."
     })
   );
 }

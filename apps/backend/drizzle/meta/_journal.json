@@ -15,6 +15,13 @@
       "when": 1777632906417,
       "tag": "0001_wild_toxin",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1777889369991,
+      "tag": "0002_brave_korvac",
+      "breakpoints": true
     }
   ]
 }
