@@ -20,7 +20,7 @@ import {
   type UpdateDocumentMarkdownRequest,
   type UpdateDocumentMetadataRequest
 } from "@wiki/shared";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import { hashMarkdown, hashRawContent } from "@wiki/backend/modules/documents/content-hash";
 
 const toIso = (value: Date) => value.toISOString();
@@ -343,6 +343,81 @@ export async function updateDocumentProgress(
   return mapDocumentDetail(row, await getCurrentMarkdownVersion(row.id, row.currentMarkdownVersionId));
 }
 
+export async function queueDocumentForStage(
+  projectId: string,
+  documentId: string,
+  pipelineStage: PipelineStage,
+  expectedStatus: DocumentStatus
+): Promise<DocumentDetail | null> {
+  const [row] = await db
+    .update(documents)
+    .set({
+      status: "queued",
+      pipelineStage,
+      updatedAt: new Date()
+    })
+    .where(
+      and(
+        eq(documents.projectId, projectId),
+        eq(documents.id, documentId),
+        eq(documents.status, expectedStatus)
+      )
+    )
+    .returning();
+
+  return row
+    ? mapDocumentDetail(row, await getCurrentMarkdownVersion(row.id, row.currentMarkdownVersionId))
+    : null;
+}
+
+export async function queueDocumentForReviewApproval(
+  projectId: string,
+  documentId: string
+): Promise<DocumentDetail | null> {
+  const [row] = await db
+    .update(documents)
+    .set({
+      status: "queued",
+      pipelineStage: "chunk",
+      updatedAt: new Date()
+    })
+    .where(
+      and(
+        eq(documents.projectId, projectId),
+        eq(documents.id, documentId),
+        eq(documents.status, "awaiting_review"),
+        isNotNull(documents.currentMarkdownVersionId)
+      )
+    )
+    .returning();
+
+  return row
+    ? mapDocumentDetail(row, await getCurrentMarkdownVersion(row.id, row.currentMarkdownVersionId))
+    : null;
+}
+
+export async function restoreQueuedDocumentStage(
+  projectId: string,
+  documentId: string,
+  status: DocumentStatus,
+  pipelineStage: PipelineStage | null
+): Promise<void> {
+  await db
+    .update(documents)
+    .set({
+      status,
+      pipelineStage,
+      updatedAt: new Date()
+    })
+    .where(
+      and(
+        eq(documents.projectId, projectId),
+        eq(documents.id, documentId),
+        eq(documents.status, "queued")
+      )
+    );
+}
+
 export async function markDocumentEnqueueFailed(documentId: string): Promise<DocumentDetail> {
   return updateDocumentProgress(documentId, "failed", "markdownify");
 }
@@ -438,4 +513,29 @@ export async function updateIngestionJobStatus(
   if (!row) {
     throw new Error("Ingestion job status update returned no row");
   }
+}
+
+export async function createQueuedIngestionJob(
+  documentId: string,
+  payload: Record<string, unknown>
+): Promise<void> {
+  const [row] = await db
+    .insert(ingestionJobs)
+    .values({
+      documentId,
+      status: "queued",
+      payload
+    })
+    .returning({ id: ingestionJobs.id });
+
+  if (!row) {
+    throw new Error("Ingestion job insert returned no row");
+  }
+}
+
+export async function markQueuedIngestionJobsFailed(documentId: string): Promise<void> {
+  await db
+    .update(ingestionJobs)
+    .set({ status: "failed" })
+    .where(and(eq(ingestionJobs.documentId, documentId), eq(ingestionJobs.status, "queued")));
 }

@@ -25,6 +25,7 @@ import { documentQueryKeys } from "@wiki/frontend/modules/documents/query-keys";
 import { updateDocumentMarkdown } from "@wiki/frontend/modules/documents/api";
 import { MarkdownPreview } from "@wiki/frontend/routes/projects/$projectId/documents/-components/markdown-preview";
 import { DocumentVersionHistory } from "@wiki/frontend/routes/projects/$projectId/documents/-components/document-version-history";
+import { DocumentReviewActions } from "@wiki/frontend/routes/projects/$projectId/documents/-components/document-review-actions";
 
 interface DocumentMarkdownPanelProps {
   document: DocumentDetail;
@@ -84,6 +85,7 @@ export function DocumentMarkdownPanel({ document, projectId }: DocumentMarkdownP
   return (
     <>
       <div className="grid gap-3">
+        <DocumentReviewActions document={document} markdownDirty={isDirty} projectId={projectId} />
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h4 className="text-ui font-medium text-foreground">Markdown</h4>
@@ -113,6 +115,7 @@ export function DocumentMarkdownPanel({ document, projectId }: DocumentMarkdownP
               onClick={() => saveMarkdownMutation.mutate()}
               title={!isDirty ? "No edits to save" : "Save markdown as a new version"}
               type="button"
+              variant={document.status === "awaiting_review" ? "ghost" : "default"}
             >
               {saveMarkdownMutation.isPending ? (
                 <LoadingLabel>Saving...</LoadingLabel>

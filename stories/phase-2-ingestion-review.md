@@ -104,7 +104,7 @@ This phase implements async ingestion, Gemini markdownification, Auto and Review
 - The document reaches ready status when all stages succeed.
 - Stage transitions are visible in the UI.
 
-### Story 5.4 - Support Review Ingestion Mode
+### Story 5.4 - Support Review Ingestion Mode [completed]
 
 **Description:** As a user, I want important documents to pause after markdownification so that I can review AI output before indexing it.
 

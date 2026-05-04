@@ -1,14 +1,16 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
 import {
   checkDuplicateDocumentRequestSchema,
   createDocumentRequestSchema,
+  documentActionResponseSchema,
   documentDetailSchema,
   duplicateDocumentResponseSchema,
   listMarkdownVersionsResponseSchema,
   listDocumentsResponseSchema,
   updateDocumentMarkdownRequestSchema,
-  updateDocumentMetadataRequestSchema
+  updateDocumentMetadataRequestSchema,
+  type DocumentDetail
 } from "@wiki/shared";
 import {
   findDuplicateDocument,
@@ -18,7 +20,12 @@ import {
   updateDocumentMarkdown,
   updateDocumentMetadata
 } from "@wiki/backend/modules/documents/repository";
-import { createDocumentAndEnqueueIngestion } from "@wiki/backend/modules/documents/service";
+import {
+  approveDocumentReview,
+  createDocumentAndEnqueueIngestion,
+  DocumentActionConflictError,
+  rerunDocumentMarkdownify
+} from "@wiki/backend/modules/documents/service";
 import { getProject } from "@wiki/backend/modules/projects/repository";
 import { projectParamsSchema } from "@wiki/backend/modules/projects/routes";
 import { parseBody, parseParams } from "@wiki/backend/routes/helpers";
@@ -116,4 +123,60 @@ export async function registerDocumentRoutes(server: FastifyInstance) {
 
     return documentDetailSchema.parse(document);
   });
+
+  server.post(
+    "/api/projects/:projectId/documents/:documentId/review/approve",
+    async (request, reply) => {
+      const { projectId, documentId } = parseParams(request, documentParamsSchema);
+      const document = await runDocumentAction(reply, () =>
+        approveDocumentReview(projectId, documentId)
+      );
+
+      if (document.status === "conflict") return;
+
+      if (!document.document) {
+        return reply.status(404).send({ error: "not_found", message: "Document not found" });
+      }
+
+      return documentActionResponseSchema.parse({ document: document.document });
+    }
+  );
+
+  server.post(
+    "/api/projects/:projectId/documents/:documentId/markdown/rerun",
+    async (request, reply) => {
+      const { projectId, documentId } = parseParams(request, documentParamsSchema);
+      const document = await runDocumentAction(reply, () =>
+        rerunDocumentMarkdownify(projectId, documentId)
+      );
+
+      if (document.status === "conflict") return;
+
+      if (!document.document) {
+        return reply.status(404).send({ error: "not_found", message: "Document not found" });
+      }
+
+      return documentActionResponseSchema.parse({ document: document.document });
+    }
+  );
+}
+
+type DocumentActionResult =
+  | { document: DocumentDetail | null; status: "ok" }
+  | { status: "conflict" };
+
+async function runDocumentAction(
+  reply: FastifyReply,
+  action: () => Promise<DocumentDetail | null>
+): Promise<DocumentActionResult> {
+  try {
+    return { document: await action(), status: "ok" };
+  } catch (error) {
+    if (error instanceof DocumentActionConflictError) {
+      void reply.status(409).send({ error: "conflict", message: error.message });
+      return { status: "conflict" };
+    }
+
+    throw error;
+  }
 }

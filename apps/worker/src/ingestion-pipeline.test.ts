@@ -89,6 +89,28 @@ describe("processDocumentIngestion", () => {
       "review"
     );
   });
+
+  it("resumes approved review documents from chunking", async () => {
+    const progressValues: number[] = [];
+    const stageTransitions: Array<PipelineStage> = [];
+    const dependencies = createDependencies(stageTransitions);
+
+    await processDocumentIngestion(
+      { ...baseJob, ingestionMode: "review", startStage: "chunk" },
+      async (value) => {
+        progressValues.push(value);
+      },
+      dependencies
+    );
+
+    expect(stageTransitions).toEqual(["chunk", "embed", "extract", "graph", "complete"]);
+    expect(progressValues).toEqual([50, 65, 80, 90, 100]);
+    expect(dependencies.markdownifyRawContent).not.toHaveBeenCalled();
+    expect(dependencies.updateIngestionJobStatus).toHaveBeenLastCalledWith(
+      baseJob.documentId,
+      "completed"
+    );
+  });
 });
 
 function createDependencies(stageTransitions: Array<PipelineStage>): IngestionPipelineDependencies {

@@ -2,6 +2,7 @@ import type {
   CheckDuplicateDocumentRequest,
   CreateDocumentRequest,
   Document,
+  DocumentActionResponse,
   DocumentDetail,
   DuplicateDocumentResponse,
   ListDocumentsResponse,
@@ -73,4 +74,24 @@ export async function updateDocumentMarkdown(
     input
   );
   return response.data;
+}
+
+export async function approveDocumentReview(
+  projectId: string,
+  documentId: string
+): Promise<DocumentDetail> {
+  const response = await api.post<DocumentActionResponse>(
+    `/projects/${projectId}/documents/${documentId}/review/approve`
+  );
+  return response.data.document;
+}
+
+export async function rerunDocumentMarkdownify(
+  projectId: string,
+  documentId: string
+): Promise<DocumentDetail> {
+  const response = await api.post<DocumentActionResponse>(
+    `/projects/${projectId}/documents/${documentId}/markdown/rerun`
+  );
+  return response.data.document;
 }

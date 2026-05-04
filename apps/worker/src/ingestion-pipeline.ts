@@ -38,6 +38,12 @@ export async function processDocumentIngestion(
   dependencies: IngestionPipelineDependencies
 ): Promise<void> {
   await dependencies.updateIngestionJobStatus(data.documentId, "processing");
+
+  if (data.startStage === "chunk") {
+    await continueAutoIngestion(data.documentId, progress, dependencies);
+    return;
+  }
+
   await updateStage(data.documentId, "markdownify", progress, 10, dependencies);
   const document = await dependencies.getDocument(data.projectId, data.documentId);
 

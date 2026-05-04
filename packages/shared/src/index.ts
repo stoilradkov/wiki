@@ -240,6 +240,12 @@ export const updateDocumentMarkdownRequestSchema = z.object({
 
 export type UpdateDocumentMarkdownRequest = z.infer<typeof updateDocumentMarkdownRequestSchema>;
 
+export const documentActionResponseSchema = z.object({
+  document: documentDetailSchema
+});
+
+export type DocumentActionResponse = z.infer<typeof documentActionResponseSchema>;
+
 export const listDocumentsResponseSchema = z.object({
   documents: z.array(documentSchema)
 });
@@ -255,7 +261,8 @@ export type ListMarkdownVersionsResponse = z.infer<typeof listMarkdownVersionsRe
 export const ingestionJobDataSchema = z.object({
   documentId: z.string().uuid(),
   projectId: z.string().uuid(),
-  ingestionMode: ingestionModeSchema
+  ingestionMode: ingestionModeSchema,
+  startStage: z.enum(["markdownify", "chunk"]).optional()
 });
 
 export type IngestionJobData = z.infer<typeof ingestionJobDataSchema>;
