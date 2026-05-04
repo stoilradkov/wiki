@@ -5,6 +5,7 @@ import {
   createDocumentRequestSchema,
   documentDetailSchema,
   duplicateDocumentResponseSchema,
+  listMarkdownVersionsResponseSchema,
   listDocumentsResponseSchema,
   updateDocumentMarkdownRequestSchema,
   updateDocumentMetadataRequestSchema
@@ -12,6 +13,7 @@ import {
 import {
   findDuplicateDocument,
   getDocument,
+  listMarkdownVersions,
   listDocuments,
   updateDocumentMarkdown,
   updateDocumentMetadata
@@ -74,6 +76,22 @@ export async function registerDocumentRoutes(server: FastifyInstance) {
 
     return documentDetailSchema.parse(document);
   });
+
+  server.get(
+    "/api/projects/:projectId/documents/:documentId/markdown/versions",
+    async (request, reply) => {
+      const { projectId, documentId } = parseParams(request, documentParamsSchema);
+      const document = await getDocument(projectId, documentId);
+
+      if (!document) {
+        return reply.status(404).send({ error: "not_found", message: "Document not found" });
+      }
+
+      return listMarkdownVersionsResponseSchema.parse(
+        await listMarkdownVersions(projectId, documentId)
+      );
+    }
+  );
 
   server.patch("/api/projects/:projectId/documents/:documentId", async (request, reply) => {
     const { projectId, documentId } = parseParams(request, documentParamsSchema);

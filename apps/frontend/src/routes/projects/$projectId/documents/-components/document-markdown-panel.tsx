@@ -24,6 +24,7 @@ import {
 import { documentQueryKeys } from "@wiki/frontend/modules/documents/query-keys";
 import { updateDocumentMarkdown } from "@wiki/frontend/modules/documents/api";
 import { MarkdownPreview } from "@wiki/frontend/routes/projects/$projectId/documents/-components/markdown-preview";
+import { DocumentVersionHistory } from "@wiki/frontend/routes/projects/$projectId/documents/-components/document-version-history";
 
 interface DocumentMarkdownPanelProps {
   document: DocumentDetail;
@@ -52,6 +53,9 @@ export function DocumentMarkdownPanel({ document, projectId }: DocumentMarkdownP
     },
     onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: documentQueryKeys.all(projectId) });
+      await queryClient.invalidateQueries({
+        queryKey: documentQueryKeys.versions(projectId, document.id)
+      });
     }
   });
   const versionLabel = useMemo(() => {
@@ -147,6 +151,7 @@ export function DocumentMarkdownPanel({ document, projectId }: DocumentMarkdownP
             </div>
           </div>
         </div>
+        <DocumentVersionHistory document={document} projectId={projectId} />
       </div>
       <AlertDialog
         onOpenChange={(open) => {

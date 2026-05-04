@@ -5,6 +5,8 @@ import type {
   DocumentDetail,
   DuplicateDocumentResponse,
   ListDocumentsResponse,
+  ListMarkdownVersionsResponse,
+  MarkdownVersion,
   UpdateDocumentMarkdownRequest,
   UpdateDocumentMetadataRequest
 } from "@wiki/shared";
@@ -37,6 +39,16 @@ export async function checkDuplicateDocument(
 export async function getDocument(projectId: string, documentId: string): Promise<DocumentDetail> {
   const response = await api.get<DocumentDetail>(`/projects/${projectId}/documents/${documentId}`);
   return response.data;
+}
+
+export async function listMarkdownVersions(
+  projectId: string,
+  documentId: string
+): Promise<MarkdownVersion[]> {
+  const response = await api.get<ListMarkdownVersionsResponse>(
+    `/projects/${projectId}/documents/${documentId}/markdown/versions`
+  );
+  return response.data.versions;
 }
 
 export async function updateDocumentMetadata(

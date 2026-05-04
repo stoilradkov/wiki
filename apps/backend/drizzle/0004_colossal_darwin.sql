@@ -1,0 +1,1 @@
+ALTER TABLE "documents" ADD COLUMN "current_markdown_version_id" uuid;

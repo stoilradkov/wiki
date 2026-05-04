@@ -186,7 +186,7 @@ This phase implements async ingestion, Gemini markdownification, Auto and Review
 - Preview output is sanitized.
 - Unsaved edits show a dirty state.
 
-### Story 6.2 - Preserve Markdown Version History
+### Story 6.2 - Preserve Markdown Version History [completed]
 
 **Description:** As a user, I want markdown versions preserved so that I can audit changes to canonical content.
 

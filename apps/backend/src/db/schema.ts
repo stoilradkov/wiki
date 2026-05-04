@@ -71,6 +71,7 @@ export const documents = pgTable(
       .$type<IngestionMode>()
       .notNull()
       .default("auto"),
+    currentMarkdownVersionId: uuid("current_markdown_version_id"),
     sourceMetadata: jsonb("source_metadata").$type<SourceMetadata>().notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()

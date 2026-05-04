@@ -155,6 +155,7 @@ export const documentSchema = z.object({
   status: documentStatusSchema,
   pipelineStage: pipelineStageSchema.nullable(),
   ingestionMode: ingestionModeSchema,
+  currentMarkdownVersionId: z.string().uuid().nullable(),
   sourceMetadata: sourceMetadataSchema,
   rawContentStored: z.boolean(),
   rawContentHash: z.string().min(1),
@@ -244,6 +245,12 @@ export const listDocumentsResponseSchema = z.object({
 });
 
 export type ListDocumentsResponse = z.infer<typeof listDocumentsResponseSchema>;
+
+export const listMarkdownVersionsResponseSchema = z.object({
+  versions: z.array(markdownVersionSchema)
+});
+
+export type ListMarkdownVersionsResponse = z.infer<typeof listMarkdownVersionsResponseSchema>;
 
 export const ingestionJobDataSchema = z.object({
   documentId: z.string().uuid(),

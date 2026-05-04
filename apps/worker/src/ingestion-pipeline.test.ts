@@ -24,6 +24,7 @@ const markdownifyResult: MarkdownifyResult = {
 const document: DocumentDetail = {
   createdAt: "2026-05-04T00:00:00.000Z",
   currentMarkdownVersion: null,
+  currentMarkdownVersionId: null,
   id: baseJob.documentId,
   ingestionMode: "auto",
   pipelineStage: "markdownify",

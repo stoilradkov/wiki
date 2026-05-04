@@ -138,6 +138,7 @@ describe("shared domain enums", () => {
         status: "ready",
         pipelineStage: "complete",
         ingestionMode: "auto",
+        currentMarkdownVersionId: markdownVersion.id,
         sourceMetadata: {},
         rawContentStored: true,
         rawContentHash: "raw123",

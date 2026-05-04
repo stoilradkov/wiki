@@ -4,6 +4,7 @@ import {
   documentDetailSchema,
   documentSchema,
   duplicateDocumentResponseSchema,
+  listMarkdownVersionsResponseSchema,
   markdownVersionSchema,
   type CheckDuplicateDocumentRequest,
   type CreateDocumentRequest,
@@ -12,18 +13,22 @@ import {
   type DocumentDetail,
   type DuplicateDocumentResponse,
   type IngestionMode,
+  type ListMarkdownVersionsResponse,
   type MarkdownifyResult,
   type MarkdownVersion,
   type PipelineStage,
   type UpdateDocumentMarkdownRequest,
   type UpdateDocumentMetadataRequest
 } from "@wiki/shared";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { createHash } from "node:crypto";
 
 const toIso = (value: Date) => value.toISOString();
 
-function mapDocument(row: typeof documents.$inferSelect): Document {
+function mapDocument(
+  row: typeof documents.$inferSelect,
+  currentMarkdownVersionId = row.currentMarkdownVersionId
+): Document {
   return documentSchema.parse({
     id: row.id,
     projectId: row.projectId,
@@ -31,6 +36,7 @@ function mapDocument(row: typeof documents.$inferSelect): Document {
     status: row.status,
     pipelineStage: row.pipelineStage,
     ingestionMode: row.ingestionMode,
+    currentMarkdownVersionId,
     sourceMetadata: row.sourceMetadata,
     rawContentStored: Boolean(row.rawContent),
     rawContentHash: row.rawContentHash,
@@ -56,7 +62,7 @@ function mapDocumentDetail(
   currentMarkdownVersion: MarkdownVersion | null
 ): DocumentDetail {
   return documentDetailSchema.parse({
-    ...mapDocument(row),
+    ...mapDocument(row, row.currentMarkdownVersionId ?? currentMarkdownVersion?.id ?? null),
     rawContent: row.rawContent,
     currentMarkdownVersion
   });
@@ -70,7 +76,7 @@ function hashMarkdown(markdown: string): string {
   return createHash("sha256").update(markdown).digest("hex");
 }
 
-async function getCurrentMarkdownVersion(documentId: string): Promise<MarkdownVersion | null> {
+async function getLatestMarkdownVersion(documentId: string): Promise<MarkdownVersion | null> {
   const [row] = await db
     .select()
     .from(markdownVersions)
@@ -81,6 +87,37 @@ async function getCurrentMarkdownVersion(documentId: string): Promise<MarkdownVe
   return row ? mapMarkdownVersion(row) : null;
 }
 
+async function getCurrentMarkdownVersion(
+  documentId: string,
+  currentMarkdownVersionId: string | null
+): Promise<MarkdownVersion | null> {
+  if (!currentMarkdownVersionId) {
+    const latestVersion = await getLatestMarkdownVersion(documentId);
+
+    if (latestVersion) {
+      await db
+        .update(documents)
+        .set({ currentMarkdownVersionId: latestVersion.id })
+        .where(and(eq(documents.id, documentId), isNull(documents.currentMarkdownVersionId)));
+    }
+
+    return latestVersion;
+  }
+
+  const [row] = await db
+    .select()
+    .from(markdownVersions)
+    .where(
+      and(
+        eq(markdownVersions.documentId, documentId),
+        eq(markdownVersions.id, currentMarkdownVersionId)
+      )
+    )
+    .limit(1);
+
+  return row ? mapMarkdownVersion(row) : getLatestMarkdownVersion(documentId);
+}
+
 export async function listDocuments(projectId: string): Promise<Document[]> {
   const rows = await db
     .select()
@@ -88,7 +125,7 @@ export async function listDocuments(projectId: string): Promise<Document[]> {
     .where(eq(documents.projectId, projectId))
     .orderBy(desc(documents.updatedAt));
 
-  return rows.map(mapDocument);
+  return rows.map((row) => mapDocument(row));
 }
 
 export async function getDocument(
@@ -101,7 +138,32 @@ export async function getDocument(
     .where(and(eq(documents.projectId, projectId), eq(documents.id, documentId)))
     .limit(1);
 
-  return row ? mapDocumentDetail(row, await getCurrentMarkdownVersion(row.id)) : null;
+  return row
+    ? mapDocumentDetail(row, await getCurrentMarkdownVersion(row.id, row.currentMarkdownVersionId))
+    : null;
+}
+
+export async function listMarkdownVersions(
+  projectId: string,
+  documentId: string
+): Promise<ListMarkdownVersionsResponse> {
+  const [documentRow] = await db
+    .select({ id: documents.id })
+    .from(documents)
+    .where(and(eq(documents.projectId, projectId), eq(documents.id, documentId)))
+    .limit(1);
+
+  if (!documentRow) {
+    return listMarkdownVersionsResponseSchema.parse({ versions: [] });
+  }
+
+  const rows = await db
+    .select()
+    .from(markdownVersions)
+    .where(eq(markdownVersions.documentId, documentId))
+    .orderBy(desc(markdownVersions.versionNumber));
+
+  return listMarkdownVersionsResponseSchema.parse({ versions: rows.map(mapMarkdownVersion) });
 }
 
 export async function findDuplicateDocument(
@@ -180,7 +242,9 @@ export async function updateDocumentMetadata(
     .where(and(eq(documents.projectId, projectId), eq(documents.id, documentId)))
     .returning();
 
-  return row ? mapDocumentDetail(row, await getCurrentMarkdownVersion(row.id)) : null;
+  return row
+    ? mapDocumentDetail(row, await getCurrentMarkdownVersion(row.id, row.currentMarkdownVersionId))
+    : null;
 }
 
 export async function updateDocumentMarkdown(
@@ -208,21 +272,22 @@ export async function updateDocumentMarkdown(
       .orderBy(desc(markdownVersions.versionNumber))
       .limit(1);
 
-    const nextStatus = documentRow.status === "ready" ? "dirty" : documentRow.status;
-    const [row] = await transaction
-      .update(documents)
-      .set({
-        status: nextStatus,
-        updatedAt: new Date()
-      })
-      .where(and(eq(documents.projectId, projectId), eq(documents.id, documentId)))
-      .returning();
-
-    if (!row) {
-      throw new Error("Document markdown edit update returned no row");
-    }
-
     if (previousVersion?.markdownHash === markdownHash) {
+      const nextStatus = documentRow.status === "ready" ? "dirty" : documentRow.status;
+      const [row] = await transaction
+        .update(documents)
+        .set({
+          status: nextStatus,
+          currentMarkdownVersionId: previousVersion.id,
+          updatedAt: new Date()
+        })
+        .where(and(eq(documents.projectId, projectId), eq(documents.id, documentId)))
+        .returning();
+
+      if (!row) {
+        throw new Error("Document markdown edit update returned no row");
+      }
+
       return [row, previousVersion];
     }
 
@@ -239,6 +304,21 @@ export async function updateDocumentMarkdown(
 
     if (!versionRow) {
       throw new Error("Markdown edit version insert returned no row");
+    }
+
+    const nextStatus = documentRow.status === "ready" ? "dirty" : documentRow.status;
+    const [row] = await transaction
+      .update(documents)
+      .set({
+        status: nextStatus,
+        currentMarkdownVersionId: versionRow.id,
+        updatedAt: new Date()
+      })
+      .where(and(eq(documents.projectId, projectId), eq(documents.id, documentId)))
+      .returning();
+
+    if (!row) {
+      throw new Error("Document markdown edit update returned no row");
     }
 
     return [row, versionRow];
@@ -268,7 +348,7 @@ export async function updateDocumentProgress(
     throw new Error("Document progress update returned no row");
   }
 
-  return mapDocumentDetail(row, await getCurrentMarkdownVersion(row.id));
+  return mapDocumentDetail(row, await getCurrentMarkdownVersion(row.id, row.currentMarkdownVersionId));
 }
 
 export async function markDocumentEnqueueFailed(documentId: string): Promise<DocumentDetail> {
@@ -298,21 +378,22 @@ export async function createMarkdownVersionFromMarkdownify(
       .orderBy(desc(markdownVersions.versionNumber))
       .limit(1);
 
-    const title = documentRow.title?.trim() ? documentRow.title : result.title;
-    const [row] = await transaction
-      .update(documents)
-      .set({
-        title,
-        updatedAt: new Date()
-      })
-      .where(eq(documents.id, documentId))
-      .returning();
-
-    if (!row) {
-      throw new Error("Document markdown update returned no row");
-    }
-
     if (previousVersion?.markdownHash === markdownHash) {
+      const title = documentRow.title?.trim() ? documentRow.title : result.title;
+      const [row] = await transaction
+        .update(documents)
+        .set({
+          title,
+          currentMarkdownVersionId: previousVersion.id,
+          updatedAt: new Date()
+        })
+        .where(eq(documents.id, documentId))
+        .returning();
+
+      if (!row) {
+        throw new Error("Document markdown update returned no row");
+      }
+
       return [row, previousVersion];
     }
 
@@ -329,6 +410,21 @@ export async function createMarkdownVersionFromMarkdownify(
 
     if (!versionRow) {
       throw new Error("Markdown version insert returned no row");
+    }
+
+    const title = documentRow.title?.trim() ? documentRow.title : result.title;
+    const [row] = await transaction
+      .update(documents)
+      .set({
+        title,
+        currentMarkdownVersionId: versionRow.id,
+        updatedAt: new Date()
+      })
+      .where(eq(documents.id, documentId))
+      .returning();
+
+    if (!row) {
+      throw new Error("Document markdown update returned no row");
     }
 
     return [row, versionRow];
