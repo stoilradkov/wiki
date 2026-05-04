@@ -1,0 +1,104 @@
+import { describe, expect, it, vi } from "vitest";
+import type {
+  DocumentDetail,
+  IngestionJobData,
+  MarkdownifyResult,
+  PipelineStage
+} from "@wiki/shared";
+import {
+  processDocumentIngestion,
+  type IngestionPipelineDependencies
+} from "@wiki/worker/ingestion-pipeline";
+
+const baseJob: IngestionJobData = {
+  documentId: "11111111-1111-4111-8111-111111111111",
+  ingestionMode: "auto",
+  projectId: "22222222-2222-4222-8222-222222222222"
+};
+
+const markdownifyResult: MarkdownifyResult = {
+  markdown: "# Trusted source\n\nUseful content.",
+  title: "Trusted source"
+};
+
+const document: DocumentDetail = {
+  createdAt: "2026-05-04T00:00:00.000Z",
+  currentMarkdownVersion: null,
+  id: baseJob.documentId,
+  ingestionMode: "auto",
+  pipelineStage: "markdownify",
+  projectId: baseJob.projectId,
+  rawContent: "Trusted source\nUseful content.",
+  rawContentHash: "raw-hash",
+  rawContentStored: true,
+  sourceMetadata: {},
+  status: "queued",
+  title: null,
+  updatedAt: "2026-05-04T00:00:00.000Z"
+};
+
+describe("processDocumentIngestion", () => {
+  it("continues auto mode through downstream stages and marks document ready", async () => {
+    const progressValues: number[] = [];
+    const stageTransitions: Array<PipelineStage> = [];
+    const dependencies = createDependencies(stageTransitions);
+
+    await processDocumentIngestion(
+      baseJob,
+      async (value) => {
+        progressValues.push(value);
+      },
+      dependencies
+    );
+
+    expect(stageTransitions).toEqual([
+      "markdownify",
+      "review",
+      "chunk",
+      "embed",
+      "extract",
+      "graph",
+      "complete"
+    ]);
+    expect(progressValues).toEqual([10, 30, 35, 50, 65, 80, 90, 100]);
+    expect(dependencies.updateIngestionJobStatus).toHaveBeenLastCalledWith(
+      baseJob.documentId,
+      "completed"
+    );
+  });
+
+  it("pauses review mode after markdownification", async () => {
+    const progressValues: number[] = [];
+    const stageTransitions: Array<PipelineStage> = [];
+    const dependencies = createDependencies(stageTransitions);
+
+    await processDocumentIngestion(
+      { ...baseJob, ingestionMode: "review" },
+      async (value) => {
+        progressValues.push(value);
+      },
+      dependencies
+    );
+
+    expect(stageTransitions).toEqual(["markdownify", "review", "review"]);
+    expect(progressValues).toEqual([10, 30, 35, 100]);
+    expect(dependencies.updateDocumentProgress).toHaveBeenLastCalledWith(
+      baseJob.documentId,
+      "awaiting_review",
+      "review"
+    );
+  });
+});
+
+function createDependencies(stageTransitions: Array<PipelineStage>): IngestionPipelineDependencies {
+  return {
+    createMarkdownVersionFromMarkdownify: vi.fn(async () => document),
+    getDocument: vi.fn(async () => document),
+    markdownifyRawContent: vi.fn(async () => markdownifyResult),
+    updateDocumentProgress: vi.fn(async (_documentId, _status, stage) => {
+      stageTransitions.push(stage);
+      return document;
+    }),
+    updateIngestionJobStatus: vi.fn(async () => undefined)
+  };
+}

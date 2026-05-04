@@ -89,7 +89,7 @@ This phase implements async ingestion, Gemini markdownification, Auto and Review
 - The generated title is used when the user did not provide one.
 - Markdown output creates or updates the current markdown version according to workflow.
 
-### Story 5.3 - Support Auto Ingestion Mode
+### Story 5.3 - Support Auto Ingestion Mode [completed]
 
 **Description:** As a user, I want trusted content to process automatically so that it becomes searchable quickly.
 

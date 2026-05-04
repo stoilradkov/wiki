@@ -1,5 +1,9 @@
-import { Worker } from "bullmq";
-import { env } from "@wiki/worker/env";
+import {
+  createMarkdownVersionFromMarkdownify,
+  getDocument,
+  updateDocumentProgress,
+  updateIngestionJobStatus
+} from "@wiki/backend/modules/documents/repository";
 import { createRedisConnection } from "@wiki/backend/redis/connection";
 import {
   createAppInfo,
@@ -7,59 +11,24 @@ import {
   domainEnums,
   ingestionJobDataSchema,
   ingestionQueueName,
-  type IngestionJobData,
-  type PipelineStage
+  type IngestionJobData
 } from "@wiki/shared";
-import {
-  createMarkdownVersionFromMarkdownify,
-  getDocument,
-  updateDocumentProgress,
-  updateIngestionJobStatus
-} from "@wiki/backend/modules/documents/repository";
+import { env } from "@wiki/worker/env";
+import { processDocumentIngestion } from "@wiki/worker/ingestion-pipeline";
 import { markdownifyRawContent } from "@wiki/worker/markdownify";
-
-async function updateStage(
-  documentId: string,
-  stage: PipelineStage,
-  progress: (value: number) => Promise<void>,
-  value: number
-): Promise<void> {
-  await updateDocumentProgress(documentId, "processing", stage);
-  await progress(value);
-}
+import { Worker } from "bullmq";
 
 async function processDocument(
   data: IngestionJobData,
   progress: (value: number) => Promise<void>
 ): Promise<void> {
-  await updateIngestionJobStatus(data.documentId, "processing");
-  await updateStage(data.documentId, "markdownify", progress, 10);
-  const document = await getDocument(data.projectId, data.documentId);
-
-  if (!document?.rawContent) {
-    throw new Error("Document raw content not found for markdownification");
-  }
-
-  const markdownifyResult = await markdownifyRawContent(document.rawContent);
-  await createMarkdownVersionFromMarkdownify(data.documentId, markdownifyResult);
-  await progress(30);
-
-  await updateStage(data.documentId, "review", progress, 35);
-
-  if (data.ingestionMode === "review") {
-    await updateDocumentProgress(data.documentId, "awaiting_review", "review");
-    await progress(100);
-    await updateIngestionJobStatus(data.documentId, "completed");
-    return;
-  }
-
-  await updateStage(data.documentId, "chunk", progress, 50);
-  await updateStage(data.documentId, "embed", progress, 65);
-  await updateStage(data.documentId, "extract", progress, 80);
-  await updateStage(data.documentId, "graph", progress, 90);
-  await updateDocumentProgress(data.documentId, "ready", "complete");
-  await progress(100);
-  await updateIngestionJobStatus(data.documentId, "completed");
+  await processDocumentIngestion(data, progress, {
+    createMarkdownVersionFromMarkdownify,
+    getDocument,
+    markdownifyRawContent,
+    updateDocumentProgress,
+    updateIngestionJobStatus
+  });
 }
 
 async function markTerminalFailure(documentId: string): Promise<void> {
