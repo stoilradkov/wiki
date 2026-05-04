@@ -21,7 +21,7 @@ import {
   type UpdateDocumentMetadataRequest
 } from "@wiki/shared";
 import { and, desc, eq, isNull } from "drizzle-orm";
-import { createHash } from "node:crypto";
+import { hashMarkdown, hashRawContent } from "@wiki/backend/modules/documents/content-hash";
 
 const toIso = (value: Date) => value.toISOString();
 
@@ -66,14 +66,6 @@ function mapDocumentDetail(
     rawContent: row.rawContent,
     currentMarkdownVersion
   });
-}
-
-function hashRawContent(rawContent: string): string {
-  return createHash("sha256").update(rawContent).digest("hex");
-}
-
-function hashMarkdown(markdown: string): string {
-  return createHash("sha256").update(markdown).digest("hex");
 }
 
 async function getLatestMarkdownVersion(documentId: string): Promise<MarkdownVersion | null> {

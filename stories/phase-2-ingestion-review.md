@@ -40,7 +40,7 @@ This phase implements async ingestion, Gemini markdownification, Auto and Review
 - The user can open the existing document, create anyway, or cancel.
 - Duplicate detection is advisory and does not hard-block creation.
 
-### Story 4.4 - Store Markdown Version Hashes
+### Story 4.4 - Store Markdown Version Hashes [completed]
 
 **Description:** As a developer, I want markdown versions to have hashes so that version comparison and future normalized duplicate detection are possible.
 
