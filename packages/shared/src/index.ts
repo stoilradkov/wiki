@@ -230,6 +230,15 @@ export const updateDocumentMetadataRequestSchema = z.object({
 
 export type UpdateDocumentMetadataRequest = z.infer<typeof updateDocumentMetadataRequestSchema>;
 
+export const updateDocumentMarkdownRequestSchema = z.object({
+  markdown: z
+    .string()
+    .min(1)
+    .refine((value) => value.trim().length > 0, "Markdown is required")
+});
+
+export type UpdateDocumentMarkdownRequest = z.infer<typeof updateDocumentMarkdownRequestSchema>;
+
 export const listDocumentsResponseSchema = z.object({
   documents: z.array(documentSchema)
 });

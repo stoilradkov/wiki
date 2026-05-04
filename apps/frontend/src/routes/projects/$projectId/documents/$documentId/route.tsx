@@ -3,11 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@wiki/frontend/components/ui/button";
-import { Separator } from "@wiki/frontend/components/ui/separator";
 import { SkeletonBlock, PageError } from "@wiki/frontend/components/interaction";
 import { getDocument } from "@wiki/frontend/modules/documents/api";
 import { documentQueryKeys } from "@wiki/frontend/modules/documents/query-keys";
 import { DocumentStatusBadge } from "@wiki/frontend/routes/projects/$projectId/documents/-components/document-status-badge";
+import { DocumentDetailTabs } from "@wiki/frontend/routes/projects/$projectId/documents/-components/document-detail-tabs";
 import { PipelineStageBar } from "@wiki/frontend/routes/projects/$projectId/documents/-components/pipeline-stage-bar";
 
 export const Route = createFileRoute("/projects/$projectId/documents/$documentId")({
@@ -74,7 +74,7 @@ function DocumentDetailView() {
   const document = documentQuery.data;
 
   return (
-    <section className="content-panel grid gap-5">
+    <section className="content-panel grid gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <Button asChild className="mb-3" size="sm" variant="ghost">
@@ -91,22 +91,7 @@ function DocumentDetailView() {
         <DocumentStatusBadge status={document.status} />
       </div>
       {document.pipelineStage ? <PipelineStageBar stage={document.pipelineStage} /> : null}
-      <Separator />
-      <div className="grid gap-3">
-        <h4 className="text-ui font-medium text-foreground">Source</h4>
-        <div className="grid gap-2 text-caption text-muted-foreground">
-          <span>{document.sourceMetadata.title ?? "No source title"}</span>
-          <span>{document.sourceMetadata.author ?? "No author"}</span>
-          <span className="meta">{document.rawContentHash}</span>
-        </div>
-      </div>
-      <Separator />
-      <div className="grid gap-3">
-        <h4 className="text-ui font-medium text-foreground">Raw text</h4>
-        <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap rounded-md border-[0.5px] border-border bg-surface-3 p-3.5 font-mono text-caption leading-relaxed text-foreground">
-          {document.rawContent ?? "Raw content is not stored for this document."}
-        </pre>
-      </div>
+      <DocumentDetailTabs document={document} projectId={projectId} />
     </section>
   );
 }

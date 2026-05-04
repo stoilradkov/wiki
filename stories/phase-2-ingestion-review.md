@@ -170,7 +170,7 @@ This phase implements async ingestion, Gemini markdownification, Auto and Review
 
 ## Epic 6 - Markdown Editing, Versions, and Raw Content
 
-### Story 6.1 - Edit Markdown in a Split View
+### Story 6.1 - Edit Markdown in a Split View [completed]
 
 **Description:** As a user, I want a simple markdown editor with preview so that I can improve AI-generated content before or after indexing.
 

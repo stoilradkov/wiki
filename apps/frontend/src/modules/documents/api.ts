@@ -5,6 +5,7 @@ import type {
   DocumentDetail,
   DuplicateDocumentResponse,
   ListDocumentsResponse,
+  UpdateDocumentMarkdownRequest,
   UpdateDocumentMetadataRequest
 } from "@wiki/shared";
 import { api } from "@wiki/frontend/lib/http";
@@ -45,6 +46,18 @@ export async function updateDocumentMetadata(
 ): Promise<DocumentDetail> {
   const response = await api.patch<DocumentDetail>(
     `/projects/${projectId}/documents/${documentId}`,
+    input
+  );
+  return response.data;
+}
+
+export async function updateDocumentMarkdown(
+  projectId: string,
+  documentId: string,
+  input: UpdateDocumentMarkdownRequest
+): Promise<DocumentDetail> {
+  const response = await api.put<DocumentDetail>(
+    `/projects/${projectId}/documents/${documentId}/markdown`,
     input
   );
   return response.data;

@@ -15,6 +15,7 @@ import {
   type MarkdownifyResult,
   type MarkdownVersion,
   type PipelineStage,
+  type UpdateDocumentMarkdownRequest,
   type UpdateDocumentMetadataRequest
 } from "@wiki/shared";
 import { and, desc, eq } from "drizzle-orm";
@@ -180,6 +181,72 @@ export async function updateDocumentMetadata(
     .returning();
 
   return row ? mapDocumentDetail(row, await getCurrentMarkdownVersion(row.id)) : null;
+}
+
+export async function updateDocumentMarkdown(
+  projectId: string,
+  documentId: string,
+  input: UpdateDocumentMarkdownRequest
+): Promise<DocumentDetail | null> {
+  const markdown = input.markdown.trim();
+  const markdownHash = hashMarkdown(markdown);
+  const [updatedDocument, currentVersion] = await db.transaction(async (transaction) => {
+    const [documentRow] = await transaction
+      .select()
+      .from(documents)
+      .where(and(eq(documents.projectId, projectId), eq(documents.id, documentId)))
+      .limit(1);
+
+    if (!documentRow) {
+      return [null, null];
+    }
+
+    const [previousVersion] = await transaction
+      .select()
+      .from(markdownVersions)
+      .where(eq(markdownVersions.documentId, documentId))
+      .orderBy(desc(markdownVersions.versionNumber))
+      .limit(1);
+
+    const nextStatus = documentRow.status === "ready" ? "dirty" : documentRow.status;
+    const [row] = await transaction
+      .update(documents)
+      .set({
+        status: nextStatus,
+        updatedAt: new Date()
+      })
+      .where(and(eq(documents.projectId, projectId), eq(documents.id, documentId)))
+      .returning();
+
+    if (!row) {
+      throw new Error("Document markdown edit update returned no row");
+    }
+
+    if (previousVersion?.markdownHash === markdownHash) {
+      return [row, previousVersion];
+    }
+
+    const [versionRow] = await transaction
+      .insert(markdownVersions)
+      .values({
+        documentId,
+        versionNumber: previousVersion ? previousVersion.versionNumber + 1 : 1,
+        markdown,
+        markdownHash,
+        author: "user"
+      })
+      .returning();
+
+    if (!versionRow) {
+      throw new Error("Markdown edit version insert returned no row");
+    }
+
+    return [row, versionRow];
+  });
+
+  return updatedDocument && currentVersion
+    ? mapDocumentDetail(updatedDocument, mapMarkdownVersion(currentVersion))
+    : null;
 }
 
 export async function updateDocumentProgress(

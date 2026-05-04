@@ -6,12 +6,14 @@ import {
   documentDetailSchema,
   duplicateDocumentResponseSchema,
   listDocumentsResponseSchema,
+  updateDocumentMarkdownRequestSchema,
   updateDocumentMetadataRequestSchema
 } from "@wiki/shared";
 import {
   findDuplicateDocument,
   getDocument,
   listDocuments,
+  updateDocumentMarkdown,
   updateDocumentMetadata
 } from "@wiki/backend/modules/documents/repository";
 import { createDocumentAndEnqueueIngestion } from "@wiki/backend/modules/documents/service";
@@ -43,7 +45,11 @@ export async function registerDocumentRoutes(server: FastifyInstance) {
     }
 
     const body = parseBody(request, createDocumentRequestSchema);
-    const document = await createDocumentAndEnqueueIngestion(projectId, project.ingestionMode, body);
+    const document = await createDocumentAndEnqueueIngestion(
+      projectId,
+      project.ingestionMode,
+      body
+    );
     return reply.status(201).send(documentDetailSchema.parse(document));
   });
 
@@ -73,6 +79,18 @@ export async function registerDocumentRoutes(server: FastifyInstance) {
     const { projectId, documentId } = parseParams(request, documentParamsSchema);
     const body = parseBody(request, updateDocumentMetadataRequestSchema);
     const document = await updateDocumentMetadata(projectId, documentId, body);
+
+    if (!document) {
+      return reply.status(404).send({ error: "not_found", message: "Document not found" });
+    }
+
+    return documentDetailSchema.parse(document);
+  });
+
+  server.put("/api/projects/:projectId/documents/:documentId/markdown", async (request, reply) => {
+    const { projectId, documentId } = parseParams(request, documentParamsSchema);
+    const body = parseBody(request, updateDocumentMarkdownRequestSchema);
+    const document = await updateDocumentMarkdown(projectId, documentId, body);
 
     if (!document) {
       return reply.status(404).send({ error: "not_found", message: "Document not found" });
