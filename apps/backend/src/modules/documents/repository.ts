@@ -6,10 +6,12 @@ import {
   duplicateDocumentResponseSchema,
   type CheckDuplicateDocumentRequest,
   type CreateDocumentRequest,
+  type DocumentStatus,
   type Document,
   type DocumentDetail,
   type DuplicateDocumentResponse,
   type IngestionMode,
+  type PipelineStage,
   type UpdateDocumentMetadataRequest
 } from "@wiki/shared";
 import { and, desc, eq } from "drizzle-orm";
@@ -122,6 +124,10 @@ export async function createDocument(
   return mapDocumentDetail(row);
 }
 
+export async function deleteDocument(documentId: string): Promise<void> {
+  await db.delete(documents).where(eq(documents.id, documentId));
+}
+
 export async function updateDocumentMetadata(
   projectId: string,
   documentId: string,
@@ -140,4 +146,45 @@ export async function updateDocumentMetadata(
     .returning();
 
   return row ? mapDocumentDetail(row) : null;
+}
+
+export async function updateDocumentProgress(
+  documentId: string,
+  status: DocumentStatus,
+  pipelineStage: PipelineStage | null
+): Promise<DocumentDetail> {
+  const [row] = await db
+    .update(documents)
+    .set({
+      status,
+      pipelineStage,
+      updatedAt: new Date()
+    })
+    .where(eq(documents.id, documentId))
+    .returning();
+
+  if (!row) {
+    throw new Error("Document progress update returned no row");
+  }
+
+  return mapDocumentDetail(row);
+}
+
+export async function markDocumentEnqueueFailed(documentId: string): Promise<DocumentDetail> {
+  return updateDocumentProgress(documentId, "failed", "markdownify");
+}
+
+export async function updateIngestionJobStatus(
+  documentId: string,
+  status: "queued" | "processing" | "completed" | "failed"
+): Promise<void> {
+  const [row] = await db
+    .update(ingestionJobs)
+    .set({ status })
+    .where(eq(ingestionJobs.documentId, documentId))
+    .returning({ id: ingestionJobs.id });
+
+  if (!row) {
+    throw new Error("Ingestion job status update returned no row");
+  }
 }

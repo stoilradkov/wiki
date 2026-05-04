@@ -202,6 +202,16 @@ export const listDocumentsResponseSchema = z.object({
 
 export type ListDocumentsResponse = z.infer<typeof listDocumentsResponseSchema>;
 
+export const ingestionJobDataSchema = z.object({
+  documentId: z.string().uuid(),
+  projectId: z.string().uuid(),
+  ingestionMode: ingestionModeSchema
+});
+
+export type IngestionJobData = z.infer<typeof ingestionJobDataSchema>;
+
+export const ingestionQueueName = "document-ingestion";
+
 export function createAppInfo(version = "0.1.0"): AppInfo {
   return appInfoSchema.parse({
     name: packageName,

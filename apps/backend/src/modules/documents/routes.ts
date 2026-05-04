@@ -9,12 +9,12 @@ import {
   updateDocumentMetadataRequestSchema
 } from "@wiki/shared";
 import {
-  createDocument,
   findDuplicateDocument,
   getDocument,
   listDocuments,
   updateDocumentMetadata
 } from "@wiki/backend/modules/documents/repository";
+import { createDocumentAndEnqueueIngestion } from "@wiki/backend/modules/documents/service";
 import { getProject } from "@wiki/backend/modules/projects/repository";
 import { projectParamsSchema } from "@wiki/backend/modules/projects/routes";
 import { parseBody, parseParams } from "@wiki/backend/routes/helpers";
@@ -43,7 +43,7 @@ export async function registerDocumentRoutes(server: FastifyInstance) {
     }
 
     const body = parseBody(request, createDocumentRequestSchema);
-    const document = await createDocument(projectId, project.ingestionMode, body);
+    const document = await createDocumentAndEnqueueIngestion(projectId, project.ingestionMode, body);
     return reply.status(201).send(documentDetailSchema.parse(document));
   });
 

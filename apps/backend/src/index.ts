@@ -1,5 +1,6 @@
 import { env } from "@wiki/backend/env";
 import { registerDocumentRoutes } from "@wiki/backend/modules/documents/routes";
+import { closeDocumentIngestionQueue } from "@wiki/backend/modules/ingestion/queue";
 import { registerProjectRoutes } from "@wiki/backend/modules/projects/routes";
 import { registerSettingsRoutes } from "@wiki/backend/modules/settings/routes";
 import { sendValidationError } from "@wiki/backend/routes/helpers";
@@ -15,6 +16,7 @@ import { ZodError } from "zod";
 const server = Fastify({
   logger: true
 });
+let closing = false;
 
 const getHealth = async () =>
   healthResponseSchema.parse({
@@ -40,6 +42,10 @@ server.setErrorHandler((error, request, reply) => {
   });
 });
 
+server.addHook("onClose", async () => {
+  await closeDocumentIngestionQueue();
+});
+
 await registerProjectRoutes(server);
 await registerDocumentRoutes(server);
 await registerSettingsRoutes(server);
@@ -58,3 +64,24 @@ try {
   server.log.error(error);
   process.exit(1);
 }
+
+async function shutdown(signal: NodeJS.Signals): Promise<void> {
+  if (closing) return;
+  closing = true;
+
+  server.log.info({ signal }, "Server process stopping");
+  try {
+    await server.close();
+    process.exit(0);
+  } catch (error) {
+    server.log.error(error);
+    process.exit(1);
+  }
+}
+
+process.on("SIGINT", (signal) => {
+  void shutdown(signal);
+});
+process.on("SIGTERM", (signal) => {
+  void shutdown(signal);
+});

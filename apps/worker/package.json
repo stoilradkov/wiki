@@ -25,7 +25,9 @@
     "typecheck": "tsc --build --pretty false"
   },
   "dependencies": {
-    "@wiki/shared": "workspace:*"
+    "@wiki/backend": "workspace:*",
+    "@wiki/shared": "workspace:*",
+    "bullmq": "^5.58.7"
   },
   "devDependencies": {
     "tsx": "4.19.4"

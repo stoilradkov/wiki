@@ -57,7 +57,7 @@ This phase implements async ingestion, Gemini markdownification, Auto and Review
 
 ## Epic 5 - Ingestion Pipeline and Status
 
-### Story 5.1 - Process Documents Asynchronously
+### Story 5.1 - Process Documents Asynchronously [completed]
 
 **Description:** As a user, I want ingestion to run in the background so that pasting content does not block the UI.
 
