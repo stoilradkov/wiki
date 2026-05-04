@@ -1,0 +1,1 @@
+ALTER TABLE "projects" ALTER COLUMN "ingestion_mode" SET DEFAULT 'inherit';

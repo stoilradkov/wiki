@@ -8,6 +8,7 @@ import {
   extractionProfileValues,
   ingestionModeValues,
   pipelineStageValues,
+  projectIngestionModeValues,
   predicateValues
 } from "@wiki/shared/domain";
 import {
@@ -43,6 +44,7 @@ describe("shared domain enums", () => {
 
   it("covers v1 ingestion modes and extraction profiles", () => {
     expect(ingestionModeValues).toEqual(["auto", "review"]);
+    expect(projectIngestionModeValues).toEqual(["inherit", "auto", "review"]);
     expect(extractionProfileValues).toEqual([
       "general",
       "work",

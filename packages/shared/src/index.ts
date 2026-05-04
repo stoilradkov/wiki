@@ -4,7 +4,8 @@ import {
   documentStatusSchema,
   extractionProfileSchema,
   ingestionModeSchema,
-  pipelineStageSchema
+  pipelineStageSchema,
+  projectIngestionModeSchema
 } from "@wiki/shared/domain";
 
 export {
@@ -31,6 +32,8 @@ export {
   ingestionModeValues,
   pipelineStageSchema,
   pipelineStageValues,
+  projectIngestionModeSchema,
+  projectIngestionModeValues,
   predicateSchema,
   predicateValues,
   type DocumentStatus,
@@ -40,6 +43,7 @@ export {
   type ExtractionProfile,
   type IngestionMode,
   type PipelineStage,
+  type ProjectIngestionMode,
   type Predicate
 } from "@wiki/shared/domain";
 
@@ -111,7 +115,7 @@ export const projectSchema = z.object({
   color: z.string().min(1),
   icon: z.string().min(1),
   archived: z.boolean(),
-  ingestionMode: ingestionModeSchema,
+  ingestionMode: projectIngestionModeSchema,
   extractionProfile: extractionProfileSchema,
   customExtractionInstructions: z.string().nullable(),
   createdAt: z.string().datetime(),
@@ -125,7 +129,7 @@ export const createProjectRequestSchema = z.object({
   description: z.string().trim().max(1_000).optional().default(""),
   color: z.string().trim().min(1).max(32).optional().default("#1f6feb"),
   icon: z.string().trim().min(1).max(48).optional().default("folder"),
-  ingestionMode: ingestionModeSchema.optional(),
+  ingestionMode: projectIngestionModeSchema.optional().default("inherit"),
   extractionProfile: extractionProfileSchema.optional().default("general"),
   customExtractionInstructions: z.string().trim().max(4_000).optional().nullable()
 });

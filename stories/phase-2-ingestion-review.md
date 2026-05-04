@@ -120,7 +120,7 @@ This phase implements async ingestion, Gemini markdownification, Auto and Review
 - Approving continues ingestion from chunking.
 - The user can rerun markdownify from raw content if raw content still exists.
 
-### Story 5.5 - Resolve Ingestion Mode Precedence
+### Story 5.5 - Resolve Ingestion Mode Precedence [completed]
 
 **Description:** As a user, I want ingestion mode defaults to be flexible so that each project and document can behave appropriately.
 

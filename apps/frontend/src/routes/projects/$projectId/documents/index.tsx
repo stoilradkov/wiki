@@ -6,7 +6,13 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import type { CreateDocumentRequest, Document, SourceMetadata } from "@wiki/shared";
+import {
+  ingestionModeValues,
+  type CreateDocumentRequest,
+  type Document,
+  type IngestionMode,
+  type SourceMetadata
+} from "@wiki/shared";
 import { Button } from "@wiki/frontend/components/ui/button";
 import {
   Form,
@@ -18,6 +24,13 @@ import {
 } from "@wiki/frontend/components/ui/form";
 import { Input } from "@wiki/frontend/components/ui/input";
 import { Separator } from "@wiki/frontend/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@wiki/frontend/components/ui/select";
 import { Textarea } from "@wiki/frontend/components/ui/textarea";
 import {
   DocumentListSkeleton,
@@ -48,6 +61,7 @@ function DocumentsView() {
     resolver: zodResolver(documentFormSchema),
     defaultValues: {
       rawContent: "",
+      ingestionMode: "default",
       sourceAuthor: "",
       sourceDate: "",
       sourceNote: "",
@@ -82,6 +96,10 @@ function DocumentsView() {
       title: optionalValue(values.title),
       sourceMetadata: metadata
     };
+
+    if (values.ingestionMode !== "default") {
+      input.ingestionMode = values.ingestionMode;
+    }
 
     setPendingDocument(input);
     duplicateCheckMutation.mutate(
@@ -168,6 +186,33 @@ function DocumentsView() {
           </div>
           <FormField
             control={documentForm.control}
+            name="ingestionMode"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Document mode</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  value={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {documentIngestionModeOptions.map((mode) => (
+                      <SelectItem key={mode} value={mode}>
+                        {documentIngestionModeLabels[mode]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={documentForm.control}
             name="rawContent"
             render={({ field }) => (
               <FormItem>
@@ -209,7 +254,10 @@ function DocumentsView() {
   );
 }
 
+type DocumentIngestionMode = "default" | IngestionMode;
+
 type DocumentFormValues = {
+  ingestionMode: DocumentIngestionMode;
   rawContent: string;
   sourceAuthor: string;
   sourceDate: string;
@@ -219,7 +267,16 @@ type DocumentFormValues = {
   title: string;
 };
 
+const documentIngestionModeOptions = ["default", ...ingestionModeValues] as const;
+
+const documentIngestionModeLabels: Record<DocumentIngestionMode, string> = {
+  auto: "Auto",
+  default: "Project default",
+  review: "Review"
+};
+
 const documentFormSchema = z.object({
+  ingestionMode: z.enum(documentIngestionModeOptions),
   rawContent: z.string().trim().min(1, "Raw text is required"),
   sourceAuthor: z.string(),
   sourceDate: z.string(),
@@ -231,7 +288,7 @@ const documentFormSchema = z.object({
 
 const documentTextFields: Array<{
   label: string;
-  name: Exclude<keyof DocumentFormValues, "rawContent">;
+  name: Exclude<keyof DocumentFormValues, "ingestionMode" | "rawContent">;
   type?: string;
 }> = [
   { label: "Title", name: "title" },

@@ -3,11 +3,13 @@ import {
   ingestionModeValues,
   pipelineStageValues,
   extractionProfileValues,
+  projectIngestionModeValues,
   type DocumentStatus,
   type ExtractionProfile,
   type IngestionMode,
   type MarkdownVersionAuthor,
   type PipelineStage,
+  type ProjectIngestionMode,
   type SourceMetadata
 } from "@wiki/shared";
 import {
@@ -28,10 +30,10 @@ export const projects = pgTable("projects", {
   color: text("color").notNull().default("#1f6feb"),
   icon: text("icon").notNull().default("folder"),
   archived: boolean("archived").notNull().default(false),
-  ingestionMode: text("ingestion_mode", { enum: ingestionModeValues })
-    .$type<IngestionMode>()
+  ingestionMode: text("ingestion_mode", { enum: projectIngestionModeValues })
+    .$type<ProjectIngestionMode>()
     .notNull()
-    .default("auto"),
+    .default("inherit"),
   extractionProfile: text("extraction_profile", { enum: extractionProfileValues })
     .$type<ExtractionProfile>()
     .notNull()

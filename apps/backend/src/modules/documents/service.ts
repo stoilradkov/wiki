@@ -3,14 +3,25 @@ import {
   createDocument,
   deleteDocument
 } from "@wiki/backend/modules/documents/repository";
-import type { CreateDocumentRequest, DocumentDetail, IngestionMode } from "@wiki/shared";
+import { env } from "@wiki/backend/env";
+import { getAppSettings } from "@wiki/backend/modules/settings/repository";
+import type {
+  CreateDocumentRequest,
+  DocumentDetail,
+  IngestionMode,
+  ProjectIngestionMode
+} from "@wiki/shared";
 
 export async function createDocumentAndEnqueueIngestion(
   projectId: string,
-  projectIngestionMode: IngestionMode,
+  projectIngestionMode: ProjectIngestionMode,
   input: CreateDocumentRequest
 ): Promise<DocumentDetail> {
-  const document = await createDocument(projectId, projectIngestionMode, input);
+  const document = await createDocument(
+    projectId,
+    await resolveProjectIngestionMode(projectIngestionMode),
+    input
+  );
 
   try {
     await enqueueDocumentIngestion({
@@ -24,4 +35,13 @@ export async function createDocumentAndEnqueueIngestion(
   }
 
   return document;
+}
+
+async function resolveProjectIngestionMode(
+  projectIngestionMode: ProjectIngestionMode
+): Promise<IngestionMode> {
+  if (projectIngestionMode !== "inherit") return projectIngestionMode;
+
+  const settings = await getAppSettings(env);
+  return settings.defaultIngestionMode;
 }

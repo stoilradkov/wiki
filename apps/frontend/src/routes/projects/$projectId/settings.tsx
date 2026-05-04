@@ -8,8 +8,8 @@ import { z } from "zod";
 import {
   extractionProfileSchema,
   extractionProfileValues,
-  ingestionModeSchema,
-  ingestionModeValues,
+  projectIngestionModeSchema,
+  projectIngestionModeValues,
   type Project,
   type CreateProjectRequest
 } from "@wiki/shared";
@@ -151,7 +151,7 @@ function SettingsView() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {ingestionModeValues.map((mode) => (
+                      {projectIngestionModeValues.map((mode) => (
                         <SelectItem key={mode} value={mode}>
                           {mode}
                         </SelectItem>
@@ -232,7 +232,7 @@ const settingsFormSchema = z.object({
   description: z.string().trim().max(1_000),
   color: z.string().trim().min(1).max(32),
   icon: z.string().trim().min(1).max(48),
-  ingestionMode: ingestionModeSchema,
+  ingestionMode: projectIngestionModeSchema,
   extractionProfile: extractionProfileSchema,
   customExtractionInstructions: z.string().trim().max(4_000)
 });
@@ -256,7 +256,7 @@ function getProjectDefaults(project?: Project): SettingsFormValues {
     description: project?.description ?? "",
     extractionProfile: project?.extractionProfile ?? "general",
     icon: project?.icon ?? "folder",
-    ingestionMode: project?.ingestionMode ?? "auto",
+    ingestionMode: project?.ingestionMode ?? "inherit",
     name: project?.name ?? ""
   };
 }

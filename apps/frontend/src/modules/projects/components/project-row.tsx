@@ -23,7 +23,9 @@ export function ProjectRow({ project }: { project: Project }) {
         </p>
         <Separator className="my-3" />
         <div className="flex items-center gap-2">
-          <span className="tag">{project.ingestionMode}</span>
+          <span className="tag">
+            {project.ingestionMode === "inherit" ? "inherits global" : project.ingestionMode}
+          </span>
           <span className="tag">{project.extractionProfile}</span>
         </div>
       </div>

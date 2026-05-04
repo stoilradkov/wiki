@@ -32,6 +32,11 @@ export const ingestionModeValues = ["auto", "review"] as const;
 export const ingestionModeSchema = z.enum(ingestionModeValues);
 export type IngestionMode = z.infer<typeof ingestionModeSchema>;
 
+export const projectIngestionModeValues = ["inherit", ...ingestionModeValues] as const;
+
+export const projectIngestionModeSchema = z.enum(projectIngestionModeValues);
+export type ProjectIngestionMode = z.infer<typeof projectIngestionModeSchema>;
+
 export const extractionProfileValues = [
   "general",
   "work",
@@ -108,6 +113,7 @@ export const domainEnumsSchema = z.object({
   documentStatuses: z.array(documentStatusSchema).readonly(),
   pipelineStages: z.array(pipelineStageSchema).readonly(),
   ingestionModes: z.array(ingestionModeSchema).readonly(),
+  projectIngestionModes: z.array(projectIngestionModeSchema).readonly(),
   extractionProfiles: z.array(extractionProfileSchema).readonly(),
   entityTypes: z.array(entityTypeSchema).readonly(),
   predicates: z.array(predicateSchema).readonly(),
@@ -120,6 +126,7 @@ export const domainEnums = domainEnumsSchema.parse({
   documentStatuses: documentStatusValues,
   pipelineStages: pipelineStageValues,
   ingestionModes: ingestionModeValues,
+  projectIngestionModes: projectIngestionModeValues,
   extractionProfiles: extractionProfileValues,
   entityTypes: entityTypeValues,
   predicates: predicateValues,

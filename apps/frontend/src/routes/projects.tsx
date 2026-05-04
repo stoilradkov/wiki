@@ -2,13 +2,13 @@ import { Outlet, createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { FolderPlus, RefreshCw } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
   extractionProfileSchema,
-  ingestionModeSchema
+  projectIngestionModeSchema
 } from "@wiki/shared";
 import { Button } from "@wiki/frontend/components/ui/button";
 import {
@@ -36,8 +36,6 @@ import {
 import { ProjectRow } from "@wiki/frontend/modules/projects/components/project-row";
 import { createProject, listProjects } from "@wiki/frontend/modules/projects/api";
 import { projectQueryKeys } from "@wiki/frontend/modules/projects/query-keys";
-import { getAppSettings } from "@wiki/frontend/modules/settings/api";
-import { settingsQueryKeys } from "@wiki/frontend/modules/settings/query-keys";
 
 export const Route = createFileRoute("/projects")({
   component: ProjectsPage
@@ -49,10 +47,6 @@ function ProjectsPage() {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const projectsQuery = useQuery({ queryKey: projectQueryKeys.all, queryFn: listProjects });
-  const appSettingsQuery = useQuery({
-    queryKey: settingsQueryKeys.app,
-    queryFn: getAppSettings
-  });
   const projectForm = useForm<CreateProjectFormValues>({
     resolver: zodResolver(createProjectFormSchema),
     defaultValues: {
@@ -60,7 +54,7 @@ function ProjectsPage() {
       description: "",
       extractionProfile: "general",
       icon: "folder",
-      ingestionMode: "auto",
+      ingestionMode: "inherit",
       name: ""
     }
   });
@@ -73,12 +67,6 @@ function ProjectsPage() {
       await navigate({ to: "/projects/$projectId/documents", params: { projectId: project.id } });
     }
   });
-
-  useEffect(() => {
-    const defaultIngestionMode = appSettingsQuery.data?.defaultIngestionMode;
-    if (!defaultIngestionMode || projectForm.formState.isDirty) return;
-    projectForm.setValue("ingestionMode", defaultIngestionMode);
-  }, [appSettingsQuery.data?.defaultIngestionMode, projectForm]);
 
   if (pathname !== "/projects") {
     return <Outlet />;
@@ -253,7 +241,7 @@ const createProjectFormSchema = z.object({
   description: z.string().trim().max(1_000),
   color: z.string().trim().min(1).max(32),
   icon: z.string().trim().min(1).max(48),
-  ingestionMode: ingestionModeSchema,
+  ingestionMode: projectIngestionModeSchema,
   extractionProfile: extractionProfileSchema,
   customExtractionInstructions: z.string().trim().max(4_000).nullable().optional()
 });

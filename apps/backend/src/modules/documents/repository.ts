@@ -126,11 +126,11 @@ export async function findDuplicateDocument(
 
 export async function createDocument(
   projectId: string,
-  projectIngestionMode: IngestionMode,
+  defaultIngestionMode: IngestionMode,
   input: CreateDocumentRequest
 ): Promise<DocumentDetail> {
   const rawContentHash = hashRawContent(input.rawContent);
-  const ingestionMode = input.ingestionMode ?? projectIngestionMode;
+  const ingestionMode = input.ingestionMode ?? defaultIngestionMode;
   const [row] = await db
     .insert(documents)
     .values({
