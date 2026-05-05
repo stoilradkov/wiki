@@ -137,6 +137,8 @@ describe("shared domain enums", () => {
         title: "Full Notes",
         status: "ready",
         pipelineStage: "complete",
+        errorCode: null,
+        errorMessage: null,
         ingestionMode: "auto",
         currentMarkdownVersionId: markdownVersion.id,
         sourceMetadata: {},

@@ -38,6 +38,8 @@ function mapDocument(
     title: row.title,
     status: row.status,
     pipelineStage: row.pipelineStage,
+    errorCode: row.errorCode,
+    errorMessage: row.errorMessage,
     ingestionMode: row.ingestionMode,
     currentMarkdownVersionId,
     sourceMetadata: row.sourceMetadata,
@@ -198,6 +200,8 @@ export async function createDocument(
       rawContentHash,
       status: "queued",
       pipelineStage: "markdownify",
+      errorCode: null,
+      errorMessage: null,
       ingestionMode,
       sourceMetadata: input.sourceMetadata
     })
@@ -274,6 +278,8 @@ export async function updateDocumentMarkdown(
         .set({
           status: nextStatus,
           currentMarkdownVersionId: previousVersion.id,
+          errorCode: null,
+          errorMessage: null,
           updatedAt: new Date()
         })
         .where(and(eq(documents.projectId, projectId), eq(documents.id, documentId)))
@@ -307,6 +313,8 @@ export async function updateDocumentMarkdown(
       .set({
         status: nextStatus,
         currentMarkdownVersionId: versionRow.id,
+        errorCode: null,
+        errorMessage: null,
         updatedAt: new Date()
       })
       .where(and(eq(documents.projectId, projectId), eq(documents.id, documentId)))
@@ -334,6 +342,7 @@ export async function updateDocumentProgress(
     .set({
       status,
       pipelineStage,
+      ...(status === "failed" ? {} : { errorCode: null, errorMessage: null }),
       updatedAt: new Date()
     })
     .where(eq(documents.id, documentId))
@@ -346,6 +355,40 @@ export async function updateDocumentProgress(
   const document = mapDocument(row);
   const event = documentIngestionEventSchema.parse({
     type: getIngestionEventType(status, pipelineStage),
+    projectId: row.projectId,
+    document,
+    occurredAt: toIso(new Date())
+  });
+  await persistIngestionEvent(event);
+
+  return mapDocumentDetail(
+    row,
+    await getCurrentMarkdownVersion(row.id, row.currentMarkdownVersionId)
+  );
+}
+
+export async function markDocumentFailed(
+  documentId: string,
+  error: { code: NonNullable<Document["errorCode"]>; message: string }
+): Promise<DocumentDetail> {
+  const [row] = await db
+    .update(documents)
+    .set({
+      status: "failed",
+      errorCode: error.code,
+      errorMessage: error.message,
+      updatedAt: new Date()
+    })
+    .where(eq(documents.id, documentId))
+    .returning();
+
+  if (!row) {
+    throw new Error("Document failure update returned no row");
+  }
+
+  const document = mapDocument(row);
+  const event = documentIngestionEventSchema.parse({
+    type: "document_failed",
     projectId: row.projectId,
     document,
     occurredAt: toIso(new Date())
@@ -382,6 +425,8 @@ export async function queueDocumentForStage(
     .set({
       status: "queued",
       pipelineStage,
+      errorCode: null,
+      errorMessage: null,
       updatedAt: new Date()
     })
     .where(
@@ -407,6 +452,8 @@ export async function queueDocumentForReviewApproval(
     .set({
       status: "queued",
       pipelineStage: "chunk",
+      errorCode: null,
+      errorMessage: null,
       updatedAt: new Date()
     })
     .where(
@@ -429,13 +476,15 @@ export async function queueDocumentForReprocess(
   documentId: string,
   expectedStatus: DocumentStatus
 ): Promise<DocumentDetail | null> {
-  if (!["dirty", "needs_reprocess", "ready"].includes(expectedStatus)) return null;
+  if (!["dirty", "needs_reprocess", "ready", "failed"].includes(expectedStatus)) return null;
 
   const [row] = await db
     .update(documents)
     .set({
       status: "queued",
       pipelineStage: "chunk",
+      errorCode: null,
+      errorMessage: null,
       updatedAt: new Date()
     })
     .where(
@@ -469,6 +518,7 @@ export async function restoreQueuedDocumentStage(
     .set({
       status,
       pipelineStage,
+      ...(status === "failed" ? {} : { errorCode: null, errorMessage: null }),
       updatedAt: new Date()
     })
     .where(
@@ -481,7 +531,13 @@ export async function restoreQueuedDocumentStage(
 }
 
 export async function markDocumentEnqueueFailed(documentId: string): Promise<DocumentDetail> {
-  return updateDocumentProgress(documentId, "failed", "markdownify");
+  return markDocumentFailed(
+    documentId,
+    {
+      code: "database_error",
+      message: "Document could not be queued for ingestion. Try again."
+    }
+  );
 }
 
 export async function createMarkdownVersionFromMarkdownify(
@@ -514,6 +570,8 @@ export async function createMarkdownVersionFromMarkdownify(
         .set({
           title,
           currentMarkdownVersionId: previousVersion.id,
+          errorCode: null,
+          errorMessage: null,
           updatedAt: new Date()
         })
         .where(eq(documents.id, documentId))
@@ -547,6 +605,8 @@ export async function createMarkdownVersionFromMarkdownify(
       .set({
         title,
         currentMarkdownVersionId: versionRow.id,
+        errorCode: null,
+        errorMessage: null,
         updatedAt: new Date()
       })
       .where(eq(documents.id, documentId))

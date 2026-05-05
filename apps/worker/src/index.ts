@@ -2,6 +2,7 @@ import {
   createMarkdownVersionFromMarkdownify,
   deleteDocumentDerivedDataForReprocess,
   getDocument,
+  markDocumentFailed,
   updateDocumentProgress,
   updateIngestionJobStatus
 } from "@wiki/backend/modules/documents/repository";
@@ -38,11 +39,15 @@ async function processDocument(
 }
 
 async function markTerminalFailure(
+  error: Error,
   documentId: string,
   publish: (document: DocumentDetail) => Promise<void>
 ): Promise<void> {
   try {
-    const document = await updateDocumentProgress(documentId, "failed", "markdownify");
+    const document = await markDocumentFailed(
+      documentId,
+      classifyIngestionError(error)
+    );
     await publish(document);
     await updateIngestionJobStatus(documentId, "failed");
   } catch (error) {
@@ -56,6 +61,53 @@ async function markTerminalFailure(
       })
     );
   }
+}
+
+function classifyIngestionError(error: Error): {
+  code: NonNullable<DocumentDetail["errorCode"]>;
+  message: string;
+} {
+  const normalized = error.message.toLowerCase();
+
+  if (normalized.includes("quota") || normalized.includes("rate limit")) {
+    return {
+      code: "quota_exceeded",
+      message: "AI quota or rate limit was reached. Retry later."
+    };
+  }
+
+  if (normalized.includes("validation") || normalized.includes("zod")) {
+    return {
+      code: "validation_failed",
+      message: "Generated content did not match the expected format. Retry ingestion."
+    };
+  }
+
+  if (normalized.includes("embed")) {
+    return {
+      code: "embedding_failed",
+      message: "Embedding generation failed. Retry ingestion."
+    };
+  }
+
+  if (normalized.includes("database") || normalized.includes("postgres")) {
+    return {
+      code: "database_error",
+      message: "Database update failed during ingestion. Retry after the service recovers."
+    };
+  }
+
+  if (normalized.includes("gemini") || normalized.includes("model")) {
+    return {
+      code: "model_error",
+      message: "AI model request failed. Retry ingestion."
+    };
+  }
+
+  return {
+    code: "unknown_error",
+    message: "Ingestion failed unexpectedly. Retry ingestion."
+  };
 }
 
 const app = createAppInfo();
@@ -119,7 +171,7 @@ worker.on("failed", (job, error) => {
   );
 
   if (documentId && exhausted) {
-    void markTerminalFailure(documentId, async (document) => {
+    void markTerminalFailure(error, documentId, async (document) => {
       await job.updateProgress(
         documentIngestionEventSchema.parse({
           type: "document_failed",

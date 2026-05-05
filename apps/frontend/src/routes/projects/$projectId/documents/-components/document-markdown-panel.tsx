@@ -247,5 +247,5 @@ export function DocumentMarkdownPanel({ document, projectId }: DocumentMarkdownP
 }
 
 function isReprocessableStatus(status: DocumentDetail["status"]): boolean {
-  return status === "dirty" || status === "needs_reprocess" || status === "ready";
+  return status === "dirty" || status === "failed" || status === "needs_reprocess" || status === "ready";
 }

@@ -26,6 +26,8 @@ const document: DocumentDetail = {
   createdAt: "2026-05-04T00:00:00.000Z",
   currentMarkdownVersion: null,
   currentMarkdownVersionId: null,
+  errorCode: null,
+  errorMessage: null,
   id: baseJob.documentId,
   ingestionMode: "auto",
   pipelineStage: "markdownify",

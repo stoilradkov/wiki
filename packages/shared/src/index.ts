@@ -155,6 +155,17 @@ export const documentSchema = z.object({
   title: z.string().nullable(),
   status: documentStatusSchema,
   pipelineStage: pipelineStageSchema.nullable(),
+  errorCode: z
+    .enum([
+      "quota_exceeded",
+      "model_error",
+      "validation_failed",
+      "embedding_failed",
+      "database_error",
+      "unknown_error"
+    ])
+    .nullable(),
+  errorMessage: z.string().min(1).nullable(),
   ingestionMode: ingestionModeSchema,
   currentMarkdownVersionId: z.string().uuid().nullable(),
   sourceMetadata: sourceMetadataSchema,

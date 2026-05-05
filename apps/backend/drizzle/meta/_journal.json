@@ -43,6 +43,13 @@
       "when": 1777965135018,
       "tag": "0005_red_magneto",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1777981190614,
+      "tag": "0006_bored_titania",
+      "breakpoints": true
     }
   ]
 }

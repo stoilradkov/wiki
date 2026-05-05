@@ -220,7 +220,7 @@ This phase implements async ingestion, Gemini markdownification, Auto and Review
 
 ## Epic 11 - Document Detail and Workspace UI
 
-### Story 11.2 - View Document Tabs
+### Story 11.2 - View Document Tabs [completed]
 
 **Description:** As a user, I want document tabs so that I can inspect canonical content, raw source, and derived data separately.
 
@@ -236,7 +236,7 @@ This phase implements async ingestion, Gemini markdownification, Auto and Review
 - Raw tab clearly indicates when raw source was deleted.
 - Chunks tab shows chunk metadata useful for debugging and citations.
 
-### Story 11.3 - Show Pipeline Status in the UI
+### Story 11.3 - Show Pipeline Status in the UI [completed]
 
 **Description:** As a user, I want document status visible wherever documents appear so that I understand whether content is ready.
 

@@ -1,6 +1,9 @@
 import type { DocumentDetail } from "@wiki/shared";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@wiki/frontend/components/ui/tabs";
+import { DocumentChunksPanel } from "@wiki/frontend/routes/projects/$projectId/documents/-components/document-chunks-panel";
+import { DocumentDerivedPlaceholder } from "@wiki/frontend/routes/projects/$projectId/documents/-components/document-derived-placeholder";
 import { DocumentMarkdownPanel } from "@wiki/frontend/routes/projects/$projectId/documents/-components/document-markdown-panel";
+import { DocumentRawPanel } from "@wiki/frontend/routes/projects/$projectId/documents/-components/document-raw-panel";
 
 interface DocumentDetailTabsProps {
   document: DocumentDetail;
@@ -26,32 +29,16 @@ export function DocumentDetailTabs({ document, projectId }: DocumentDetailTabsPr
         <DocumentMarkdownPanel document={document} projectId={projectId} />
       </TabsContent>
       <TabsContent value="raw">
-        <div className="grid gap-3">
-          <div className="grid gap-2 text-caption text-muted-foreground">
-            <span>{document.sourceMetadata.title ?? "No source title"}</span>
-            <span>{document.sourceMetadata.author ?? "No author"}</span>
-            <span className="meta">{document.rawContentHash}</span>
-          </div>
-          <h4 className="text-ui font-medium text-foreground">Raw text</h4>
-          <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap rounded-md border-[0.5px] border-border bg-surface-3 p-3.5 font-mono text-caption leading-relaxed text-foreground">
-            {document.rawContent ?? "Raw content is not stored for this document."}
-          </pre>
-        </div>
+        <DocumentRawPanel document={document} />
       </TabsContent>
       <TabsContent value="summary">
-        <div className="rounded-md border-[0.5px] border-border bg-surface-2 p-3.5 text-ui text-muted-foreground">
-          Summary will appear after extraction runs.
-        </div>
+        <DocumentDerivedPlaceholder document={document} label="Summary" />
       </TabsContent>
       <TabsContent value="entities">
-        <div className="rounded-md border-[0.5px] border-border bg-surface-2 p-3.5 text-ui text-muted-foreground">
-          Entities will appear after extraction runs.
-        </div>
+        <DocumentDerivedPlaceholder document={document} label="Entities" />
       </TabsContent>
       <TabsContent value="chunks">
-        <div className="rounded-md border-[0.5px] border-border bg-surface-2 p-3.5 text-ui text-muted-foreground">
-          Chunks will appear after indexing runs.
-        </div>
+        <DocumentChunksPanel document={document} />
       </TabsContent>
     </Tabs>
   );

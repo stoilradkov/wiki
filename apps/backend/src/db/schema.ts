@@ -70,6 +70,8 @@ export const documents = pgTable(
       .notNull()
       .default("queued"),
     pipelineStage: text("pipeline_stage", { enum: pipelineStageValues }).$type<PipelineStage>(),
+    errorCode: text("error_code"),
+    errorMessage: text("error_message"),
     ingestionMode: text("ingestion_mode", { enum: ingestionModeValues })
       .$type<IngestionMode>()
       .notNull()

@@ -8,6 +8,7 @@ import { getDocument } from "@wiki/frontend/modules/documents/api";
 import { documentQueryKeys } from "@wiki/frontend/modules/documents/query-keys";
 import { DocumentStatusBadge } from "@wiki/frontend/routes/projects/$projectId/documents/-components/document-status-badge";
 import { DocumentDetailTabs } from "@wiki/frontend/routes/projects/$projectId/documents/-components/document-detail-tabs";
+import { DocumentPipelineStatusPanel } from "@wiki/frontend/routes/projects/$projectId/documents/-components/document-pipeline-status-panel";
 import { PipelineStageBar } from "@wiki/frontend/routes/projects/$projectId/documents/-components/pipeline-stage-bar";
 
 export const Route = createFileRoute("/projects/$projectId/documents/$documentId")({
@@ -91,6 +92,7 @@ function DocumentDetailView() {
         <DocumentStatusBadge status={document.status} />
       </div>
       {document.pipelineStage ? <PipelineStageBar stage={document.pipelineStage} /> : null}
+      <DocumentPipelineStatusPanel document={document} projectId={projectId} />
       <DocumentDetailTabs document={document} projectId={projectId} />
     </section>
   );
