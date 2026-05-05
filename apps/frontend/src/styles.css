@@ -407,7 +407,9 @@ select {
 .markdown-preview h1,
 .markdown-preview h2,
 .markdown-preview h3,
-.markdown-preview h4 {
+.markdown-preview h4,
+.markdown-preview h5,
+.markdown-preview h6 {
   color: var(--text);
   display: block;
   font-family: var(--font-display);
@@ -429,6 +431,11 @@ select {
 
 .markdown-preview h4 {
   font-size: 18px;
+}
+
+.markdown-preview h5,
+.markdown-preview h6 {
+  font-size: 16px;
 }
 
 .markdown-preview p {
@@ -471,6 +478,11 @@ select {
   padding: 0;
 }
 
+.markdown-preview img {
+  max-width: 100%;
+  border-radius: var(--radius-md);
+}
+
 .markdown-preview blockquote {
   border-left: 0.5px solid var(--border-em);
   color: var(--muted);
@@ -496,6 +508,15 @@ select {
   margin-top: 4px;
 }
 
+.markdown-preview li > ul,
+.markdown-preview li > ol {
+  margin-top: 4px;
+}
+
+.markdown-preview li:has(> input[type="checkbox"]) {
+  list-style: none;
+}
+
 .markdown-preview table {
   width: 100%;
   border-collapse: collapse;
@@ -519,6 +540,12 @@ select {
 .markdown-preview input[type="checkbox"] {
   accent-color: var(--accent);
   margin-right: 6px;
+}
+
+.markdown-preview hr {
+  height: 0.5px;
+  border: 0;
+  background: var(--border);
 }
 
 @keyframes pulse {

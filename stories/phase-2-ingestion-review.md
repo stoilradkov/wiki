@@ -252,7 +252,7 @@ This phase implements async ingestion, Gemini markdownification, Auto and Review
 - Failed documents show retry actions.
 - Ready documents are eligible for search, chat, and graph.
 
-### Story 11.4 - Render Sanitized Markdown
+### Story 11.4 - Render Sanitized Markdown [completed]
 
 **Description:** As a user, I want markdown previews to render common formatting safely so that documents are readable without creating avoidable security risks.
 
