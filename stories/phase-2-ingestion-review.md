@@ -270,7 +270,7 @@ This phase implements async ingestion, Gemini markdownification, Auto and Review
 
 ## Epic 13 - Error Handling, Quotas, and Configuration
 
-### Story 13.2 - Respect Rate Limits with Backoff
+### Story 13.2 - Respect Rate Limits with Backoff [completed]
 
 **Description:** As a user, I want the ingestion worker to handle Gemini rate limits gracefully so that temporary quota pressure does not corrupt documents.
 

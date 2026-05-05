@@ -21,6 +21,7 @@ import {
 } from "@wiki/shared";
 import { env } from "@wiki/worker/env";
 import { processDocumentIngestion } from "@wiki/worker/ingestion-pipeline";
+import { classifyIngestionError } from "@wiki/worker/ingestion-errors";
 import { markdownifyRawContent } from "@wiki/worker/markdownify";
 import { Worker } from "bullmq";
 
@@ -44,10 +45,8 @@ async function markTerminalFailure(
   publish: (document: DocumentDetail) => Promise<void>
 ): Promise<void> {
   try {
-    const document = await markDocumentFailed(
-      documentId,
-      classifyIngestionError(error)
-    );
+    const classification = classifyIngestionError(error);
+    const document = await markDocumentFailed(documentId, classification);
     await publish(document);
     await updateIngestionJobStatus(documentId, "failed");
   } catch (error) {
@@ -61,53 +60,6 @@ async function markTerminalFailure(
       })
     );
   }
-}
-
-function classifyIngestionError(error: Error): {
-  code: NonNullable<DocumentDetail["errorCode"]>;
-  message: string;
-} {
-  const normalized = error.message.toLowerCase();
-
-  if (normalized.includes("quota") || normalized.includes("rate limit")) {
-    return {
-      code: "quota_exceeded",
-      message: "AI quota or rate limit was reached. Retry later."
-    };
-  }
-
-  if (normalized.includes("validation") || normalized.includes("zod")) {
-    return {
-      code: "validation_failed",
-      message: "Generated content did not match the expected format. Retry ingestion."
-    };
-  }
-
-  if (normalized.includes("embed")) {
-    return {
-      code: "embedding_failed",
-      message: "Embedding generation failed. Retry ingestion."
-    };
-  }
-
-  if (normalized.includes("database") || normalized.includes("postgres")) {
-    return {
-      code: "database_error",
-      message: "Database update failed during ingestion. Retry after the service recovers."
-    };
-  }
-
-  if (normalized.includes("gemini") || normalized.includes("model")) {
-    return {
-      code: "model_error",
-      message: "AI model request failed. Retry ingestion."
-    };
-  }
-
-  return {
-    code: "unknown_error",
-    message: "Ingestion failed unexpectedly. Retry ingestion."
-  };
 }
 
 const app = createAppInfo();
@@ -155,17 +107,27 @@ const worker = new Worker<IngestionJobData>(
 
 worker.on("failed", (job, error) => {
   const documentId = job?.data.documentId;
+  const classification = classifyIngestionError(error);
   const attempts = typeof job?.opts.attempts === "number" ? job.opts.attempts : 1;
   const exhausted = job ? job.attemptsMade >= attempts : true;
   console.error(
     JSON.stringify({
-      level: "error",
+      level: exhausted ? "error" : "warn",
       service: "worker",
-      message: "Document ingestion job failed",
+      message: exhausted
+        ? "Document ingestion job exhausted retries"
+        : "Document ingestion job failed; retry scheduled by BullMQ",
       jobId: job?.id,
       documentId,
+      projectId: job?.data.projectId,
+      ingestionMode: job?.data.ingestionMode,
+      startStage: job?.data.startStage ?? "markdownify",
       attemptsMade: job?.attemptsMade,
       attempts,
+      attemptsRemaining: Math.max(attempts - (job?.attemptsMade ?? attempts), 0),
+      errorCode: classification.code,
+      errorReason: classification.reason,
+      retryable: classification.retryable,
       error: error.message
     })
   );

@@ -37,6 +37,11 @@ export function DocumentPipelineStatusPanel({
 
   if (document.status === "failed") {
     const retryAvailable = document.rawContentStored || Boolean(document.currentMarkdownVersion);
+    const isQuotaFailure = document.errorCode === "quota_exceeded";
+    const retryTitle = isQuotaFailure
+      ? "Retry ingestion later when quota pressure eases"
+      : "Retry ingestion";
+    const retryLabel = isQuotaFailure ? "Retry later" : "Retry";
 
     return (
       <div className="grid gap-3 rounded-md border-[0.5px] border-coral bg-(--coral-dim) p-3.5">
@@ -58,7 +63,7 @@ export function DocumentPipelineStatusPanel({
             aria-busy={retryMutation.isPending}
             disabled={!retryAvailable || retryMutation.isPending}
             onClick={() => retryMutation.mutate()}
-            title={retryAvailable ? "Retry ingestion" : "No source or markdown version to retry"}
+            title={retryAvailable ? retryTitle : "No source or markdown version to retry"}
             type="button"
             variant="danger"
           >
@@ -67,7 +72,7 @@ export function DocumentPipelineStatusPanel({
             ) : (
               <>
                 <RefreshCw className="size-3.75" />
-                Retry
+                {retryLabel}
               </>
             )}
           </Button>
