@@ -8,9 +8,13 @@ import { createRedisConnection } from "@wiki/backend/redis/connection";
 import {
   createAppInfo,
   createPublicAiSettings,
+  documentIngestionEventSchema,
+  documentSchema,
   domainEnums,
   ingestionJobDataSchema,
   ingestionQueueName,
+  type DocumentIngestionEvent,
+  type DocumentDetail,
   type IngestionJobData
 } from "@wiki/shared";
 import { env } from "@wiki/worker/env";
@@ -20,7 +24,7 @@ import { Worker } from "bullmq";
 
 async function processDocument(
   data: IngestionJobData,
-  progress: (value: number) => Promise<void>
+  progress: (event: DocumentIngestionEvent) => Promise<void>
 ): Promise<void> {
   await processDocumentIngestion(data, progress, {
     createMarkdownVersionFromMarkdownify,
@@ -31,9 +35,13 @@ async function processDocument(
   });
 }
 
-async function markTerminalFailure(documentId: string): Promise<void> {
+async function markTerminalFailure(
+  documentId: string,
+  publish: (document: DocumentDetail) => Promise<void>
+): Promise<void> {
   try {
-    await updateDocumentProgress(documentId, "failed", "markdownify");
+    const document = await updateDocumentProgress(documentId, "failed", "markdownify");
+    await publish(document);
     await updateIngestionJobStatus(documentId, "failed");
   } catch (error) {
     console.error(
@@ -109,7 +117,16 @@ worker.on("failed", (job, error) => {
   );
 
   if (documentId && exhausted) {
-    void markTerminalFailure(documentId);
+    void markTerminalFailure(documentId, async (document) => {
+      await job.updateProgress(
+        documentIngestionEventSchema.parse({
+          type: "document_failed",
+          projectId: document.projectId,
+          document: documentSchema.parse(document),
+          occurredAt: new Date().toISOString()
+        })
+      );
+    });
   }
 });
 

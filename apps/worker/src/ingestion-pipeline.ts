@@ -1,11 +1,16 @@
 import type {
+  Document,
   DocumentDetail,
+  DocumentIngestionEvent,
+  DocumentStatus,
+  EventType,
   IngestionJobData,
   MarkdownifyResult,
   PipelineStage
 } from "@wiki/shared";
+import { documentIngestionEventSchema, documentSchema } from "@wiki/shared";
 
-type ProgressReporter = (value: number) => Promise<void>;
+type ProgressReporter = (event: DocumentIngestionEvent) => Promise<void>;
 
 export type IngestionPipelineDependencies = {
   createMarkdownVersionFromMarkdownify: (
@@ -53,13 +58,11 @@ export async function processDocumentIngestion(
 
   const markdownifyResult = await dependencies.markdownifyRawContent(document.rawContent);
   await dependencies.createMarkdownVersionFromMarkdownify(data.documentId, markdownifyResult);
-  await progress(30);
 
   await updateStage(data.documentId, "review", progress, 35, dependencies);
 
   if (data.ingestionMode === "review") {
-    await dependencies.updateDocumentProgress(data.documentId, "awaiting_review", "review");
-    await progress(100);
+    await updateStatus(data.documentId, "awaiting_review", "review", progress, dependencies);
     await dependencies.updateIngestionJobStatus(data.documentId, "completed");
     return;
   }
@@ -76,8 +79,7 @@ async function continueAutoIngestion(
     await updateStage(documentId, step.stage, progress, step.progress, dependencies);
   }
 
-  await dependencies.updateDocumentProgress(documentId, "ready", "complete");
-  await progress(100);
+  await updateStatus(documentId, "ready", "complete", progress, dependencies);
   await dependencies.updateIngestionJobStatus(documentId, "completed");
 }
 
@@ -88,6 +90,35 @@ async function updateStage(
   value: number,
   dependencies: IngestionPipelineDependencies
 ): Promise<void> {
-  await dependencies.updateDocumentProgress(documentId, "processing", stage);
-  await progress(value);
+  await updateStatus(documentId, "processing", stage, progress, dependencies);
+  void value;
+}
+
+async function updateStatus(
+  documentId: string,
+  status: "processing" | "awaiting_review" | "ready",
+  stage: PipelineStage,
+  progress: ProgressReporter,
+  dependencies: IngestionPipelineDependencies
+): Promise<void> {
+  const document = await dependencies.updateDocumentProgress(documentId, status, stage);
+  await progress(createIngestionEvent(document, status));
+}
+
+function createIngestionEvent(
+  document: DocumentDetail,
+  status: DocumentStatus
+): DocumentIngestionEvent {
+  return documentIngestionEventSchema.parse({
+    type: getIngestionEventType(status),
+    projectId: document.projectId,
+    document: documentSchema.parse(document) satisfies Document,
+    occurredAt: new Date().toISOString()
+  });
+}
+
+function getIngestionEventType(status: DocumentStatus): EventType {
+  if (status === "failed") return "document_failed";
+  if (status === "ready") return "document_ready";
+  return "document_stage_changed";
 }

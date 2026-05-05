@@ -1,15 +1,14 @@
 import { env } from "@wiki/backend/env";
 import { registerDocumentRoutes } from "@wiki/backend/modules/documents/routes";
+import {
+  closeIngestionEventRoutes,
+  registerIngestionEventRoutes
+} from "@wiki/backend/modules/ingestion/events";
 import { closeDocumentIngestionQueue } from "@wiki/backend/modules/ingestion/queue";
 import { registerProjectRoutes } from "@wiki/backend/modules/projects/routes";
 import { registerSettingsRoutes } from "@wiki/backend/modules/settings/routes";
 import { sendValidationError } from "@wiki/backend/routes/helpers";
-import {
-  createAppInfo,
-  domainEnums,
-  domainEnumsSchema,
-  healthResponseSchema
-} from "@wiki/shared";
+import { createAppInfo, domainEnums, domainEnumsSchema, healthResponseSchema } from "@wiki/shared";
 import Fastify from "fastify";
 import { ZodError } from "zod";
 
@@ -44,10 +43,12 @@ server.setErrorHandler((error, request, reply) => {
 
 server.addHook("onClose", async () => {
   await closeDocumentIngestionQueue();
+  await closeIngestionEventRoutes();
 });
 
 await registerProjectRoutes(server);
 await registerDocumentRoutes(server);
+await registerIngestionEventRoutes(server);
 await registerSettingsRoutes(server);
 
 const port = env.PORT;

@@ -136,7 +136,7 @@ This phase implements async ingestion, Gemini markdownification, Auto and Review
 - The user can override mode for a specific pasted document.
 - The selected document mode is stored on the document.
 
-### Story 5.6 - Stream Ingestion Status
+### Story 5.6 - Stream Ingestion Status [completed]
 
 **Description:** As a user, I want live ingestion feedback so that I know what the system is doing with my document.
 

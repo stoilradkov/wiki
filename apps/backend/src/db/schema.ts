@@ -1,10 +1,13 @@
 import {
   documentStatusValues,
+  eventTypeValues,
   ingestionModeValues,
   pipelineStageValues,
   extractionProfileValues,
   projectIngestionModeValues,
   type DocumentStatus,
+  type DocumentIngestionEvent,
+  type EventType,
   type ExtractionProfile,
   type IngestionMode,
   type MarkdownVersionAuthor,
@@ -91,6 +94,28 @@ export const ingestionJobs = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
   },
   (table) => [index("ingestion_jobs_document_id_idx").on(table.documentId)]
+);
+
+export const ingestionEvents = pgTable(
+  "ingestion_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    type: text("type", { enum: eventTypeValues }).$type<EventType>().notNull(),
+    status: text("status", { enum: documentStatusValues }).$type<DocumentStatus>().notNull(),
+    pipelineStage: text("pipeline_stage", { enum: pipelineStageValues }).$type<PipelineStage>(),
+    payload: jsonb("payload").$type<DocumentIngestionEvent>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    index("ingestion_events_project_id_created_at_idx").on(table.projectId, table.createdAt),
+    index("ingestion_events_document_id_idx").on(table.documentId)
+  ]
 );
 
 export const markdownVersions = pgTable(

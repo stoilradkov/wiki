@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { BackendEnv, WorkerEnv } from "@wiki/shared/env";
 import {
   documentStatusSchema,
+  eventTypeSchema,
   extractionProfileSchema,
   ingestionModeSchema,
   pipelineStageSchema,
@@ -251,6 +252,43 @@ export const listDocumentsResponseSchema = z.object({
 });
 
 export type ListDocumentsResponse = z.infer<typeof listDocumentsResponseSchema>;
+
+export const ingestionSnapshotEventSchema = z.object({
+  type: z.literal("ingestion_snapshot"),
+  projectId: z.string().uuid(),
+  documents: z.array(documentSchema),
+  occurredAt: z.string().datetime()
+});
+
+export type IngestionSnapshotEvent = z.infer<typeof ingestionSnapshotEventSchema>;
+
+export const documentIngestionEventSchema = z.object({
+  type: eventTypeSchema.extract([
+    "document_status_changed",
+    "document_stage_changed",
+    "document_failed",
+    "document_ready"
+  ]),
+  projectId: z.string().uuid(),
+  document: documentSchema,
+  occurredAt: z.string().datetime()
+});
+
+export type DocumentIngestionEvent = z.infer<typeof documentIngestionEventSchema>;
+
+export const ingestionStreamEventSchema = z.union([
+  ingestionSnapshotEventSchema,
+  documentIngestionEventSchema
+]);
+
+export type IngestionStreamEvent = z.infer<typeof ingestionStreamEventSchema>;
+
+export const ingestionHeartbeatEventSchema = z.object({
+  type: z.literal("heartbeat"),
+  occurredAt: z.string().datetime()
+});
+
+export type IngestionHeartbeatEvent = z.infer<typeof ingestionHeartbeatEventSchema>;
 
 export const listMarkdownVersionsResponseSchema = z.object({
   versions: z.array(markdownVersionSchema)

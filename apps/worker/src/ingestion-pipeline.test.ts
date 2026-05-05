@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type {
+  DocumentIngestionEvent,
   DocumentDetail,
   IngestionJobData,
   MarkdownifyResult,
@@ -40,14 +41,14 @@ const document: DocumentDetail = {
 
 describe("processDocumentIngestion", () => {
   it("continues auto mode through downstream stages and marks document ready", async () => {
-    const progressValues: number[] = [];
+    const progressEvents: DocumentIngestionEvent[] = [];
     const stageTransitions: Array<PipelineStage> = [];
     const dependencies = createDependencies(stageTransitions);
 
     await processDocumentIngestion(
       baseJob,
-      async (value) => {
-        progressValues.push(value);
+      async (event) => {
+        progressEvents.push(event);
       },
       dependencies
     );
@@ -61,7 +62,15 @@ describe("processDocumentIngestion", () => {
       "graph",
       "complete"
     ]);
-    expect(progressValues).toEqual([10, 30, 35, 50, 65, 80, 90, 100]);
+    expect(progressEvents.map((event) => event.document.pipelineStage)).toEqual([
+      "markdownify",
+      "review",
+      "chunk",
+      "embed",
+      "extract",
+      "graph",
+      "complete"
+    ]);
     expect(dependencies.updateIngestionJobStatus).toHaveBeenLastCalledWith(
       baseJob.documentId,
       "completed"
@@ -69,20 +78,24 @@ describe("processDocumentIngestion", () => {
   });
 
   it("pauses review mode after markdownification", async () => {
-    const progressValues: number[] = [];
+    const progressEvents: DocumentIngestionEvent[] = [];
     const stageTransitions: Array<PipelineStage> = [];
     const dependencies = createDependencies(stageTransitions);
 
     await processDocumentIngestion(
       { ...baseJob, ingestionMode: "review" },
-      async (value) => {
-        progressValues.push(value);
+      async (event) => {
+        progressEvents.push(event);
       },
       dependencies
     );
 
     expect(stageTransitions).toEqual(["markdownify", "review", "review"]);
-    expect(progressValues).toEqual([10, 30, 35, 100]);
+    expect(progressEvents.map((event) => event.document.status)).toEqual([
+      "processing",
+      "processing",
+      "awaiting_review"
+    ]);
     expect(dependencies.updateDocumentProgress).toHaveBeenLastCalledWith(
       baseJob.documentId,
       "awaiting_review",
@@ -91,20 +104,26 @@ describe("processDocumentIngestion", () => {
   });
 
   it("resumes approved review documents from chunking", async () => {
-    const progressValues: number[] = [];
+    const progressEvents: DocumentIngestionEvent[] = [];
     const stageTransitions: Array<PipelineStage> = [];
     const dependencies = createDependencies(stageTransitions);
 
     await processDocumentIngestion(
       { ...baseJob, ingestionMode: "review", startStage: "chunk" },
-      async (value) => {
-        progressValues.push(value);
+      async (event) => {
+        progressEvents.push(event);
       },
       dependencies
     );
 
     expect(stageTransitions).toEqual(["chunk", "embed", "extract", "graph", "complete"]);
-    expect(progressValues).toEqual([50, 65, 80, 90, 100]);
+    expect(progressEvents.map((event) => event.document.pipelineStage)).toEqual([
+      "chunk",
+      "embed",
+      "extract",
+      "graph",
+      "complete"
+    ]);
     expect(dependencies.markdownifyRawContent).not.toHaveBeenCalled();
     expect(dependencies.updateIngestionJobStatus).toHaveBeenLastCalledWith(
       baseJob.documentId,
@@ -118,9 +137,14 @@ function createDependencies(stageTransitions: Array<PipelineStage>): IngestionPi
     createMarkdownVersionFromMarkdownify: vi.fn(async () => document),
     getDocument: vi.fn(async () => document),
     markdownifyRawContent: vi.fn(async () => markdownifyResult),
-    updateDocumentProgress: vi.fn(async (_documentId, _status, stage) => {
+    updateDocumentProgress: vi.fn(async (_documentId, status, stage) => {
       stageTransitions.push(stage);
-      return document;
+      return {
+        ...document,
+        pipelineStage: stage,
+        status,
+        updatedAt: "2026-05-04T00:00:01.000Z"
+      };
     }),
     updateIngestionJobStatus: vi.fn(async () => undefined)
   };

@@ -1,6 +1,7 @@
 import { db } from "@wiki/backend/db/client";
-import { documents, ingestionJobs, markdownVersions } from "@wiki/backend/db/schema";
+import { documents, ingestionEvents, ingestionJobs, markdownVersions } from "@wiki/backend/db/schema";
 import {
+  documentIngestionEventSchema,
   documentDetailSchema,
   documentSchema,
   duplicateDocumentResponseSchema,
@@ -8,10 +9,12 @@ import {
   markdownVersionSchema,
   type CheckDuplicateDocumentRequest,
   type CreateDocumentRequest,
+  type DocumentIngestionEvent,
   type DocumentStatus,
   type Document,
   type DocumentDetail,
   type DuplicateDocumentResponse,
+  type EventType,
   type IngestionMode,
   type ListMarkdownVersionsResponse,
   type MarkdownifyResult,
@@ -340,7 +343,32 @@ export async function updateDocumentProgress(
     throw new Error("Document progress update returned no row");
   }
 
-  return mapDocumentDetail(row, await getCurrentMarkdownVersion(row.id, row.currentMarkdownVersionId));
+  const document = mapDocument(row);
+  const event = documentIngestionEventSchema.parse({
+    type: getIngestionEventType(status, pipelineStage),
+    projectId: row.projectId,
+    document,
+    occurredAt: toIso(new Date())
+  });
+  await persistIngestionEvent(event);
+
+  return mapDocumentDetail(
+    row,
+    await getCurrentMarkdownVersion(row.id, row.currentMarkdownVersionId)
+  );
+}
+
+export async function getLatestDocumentIngestionEvent(
+  documentId: string
+): Promise<DocumentIngestionEvent | null> {
+  const [row] = await db
+    .select()
+    .from(ingestionEvents)
+    .where(eq(ingestionEvents.documentId, documentId))
+    .orderBy(desc(ingestionEvents.createdAt))
+    .limit(1);
+
+  return row ? documentIngestionEventSchema.parse(row.payload) : null;
 }
 
 export async function queueDocumentForStage(
@@ -538,4 +566,31 @@ export async function markQueuedIngestionJobsFailed(documentId: string): Promise
     .update(ingestionJobs)
     .set({ status: "failed" })
     .where(and(eq(ingestionJobs.documentId, documentId), eq(ingestionJobs.status, "queued")));
+}
+
+async function persistIngestionEvent(event: DocumentIngestionEvent): Promise<void> {
+  const [row] = await db
+    .insert(ingestionEvents)
+    .values({
+      documentId: event.document.id,
+      payload: event,
+      pipelineStage: event.document.pipelineStage,
+      projectId: event.projectId,
+      status: event.document.status,
+      type: event.type
+    })
+    .returning({ id: ingestionEvents.id });
+
+  if (!row) {
+    throw new Error("Ingestion event insert returned no row");
+  }
+}
+
+function getIngestionEventType(
+  status: DocumentStatus,
+  pipelineStage: PipelineStage | null
+): EventType {
+  if (status === "failed") return "document_failed";
+  if (status === "ready") return "document_ready";
+  return pipelineStage ? "document_stage_changed" : "document_status_changed";
 }
