@@ -9,10 +9,7 @@ import {
   getErrorMessage
 } from "@wiki/frontend/components/interaction";
 import { documentQueryKeys } from "@wiki/frontend/modules/documents/query-keys";
-import {
-  reprocessCurrentMarkdown,
-  rerunDocumentMarkdownify
-} from "@wiki/frontend/modules/documents/api";
+import { retryDocumentIngestion } from "@wiki/frontend/modules/documents/api";
 
 interface DocumentPipelineStatusPanelProps {
   document: DocumentDetail;
@@ -25,10 +22,7 @@ export function DocumentPipelineStatusPanel({
 }: DocumentPipelineStatusPanelProps) {
   const queryClient = useQueryClient();
   const retryMutation = useMutation({
-    mutationFn: () =>
-      document.rawContentStored
-        ? rerunDocumentMarkdownify(projectId, document.id)
-        : reprocessCurrentMarkdown(projectId, document.id),
+    mutationFn: () => retryDocumentIngestion(projectId, document.id),
     onSuccess: (updatedDocument) => {
       queryClient.setQueryData(documentQueryKeys.detail(projectId, document.id), updatedDocument);
     },

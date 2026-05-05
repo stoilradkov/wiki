@@ -25,6 +25,7 @@ import {
   createDocumentAndEnqueueIngestion,
   DocumentActionConflictError,
   reprocessCurrentMarkdown,
+  retryFailedDocumentIngestion,
   rerunDocumentMarkdownify
 } from "@wiki/backend/modules/documents/service";
 import { getProject } from "@wiki/backend/modules/projects/repository";
@@ -178,6 +179,21 @@ export async function registerDocumentRoutes(server: FastifyInstance) {
       return documentActionResponseSchema.parse({ document: document.document });
     }
   );
+
+  server.post("/api/projects/:projectId/documents/:documentId/retry", async (request, reply) => {
+    const { projectId, documentId } = parseParams(request, documentParamsSchema);
+    const document = await runDocumentAction(reply, () =>
+      retryFailedDocumentIngestion(projectId, documentId)
+    );
+
+    if (document.status === "conflict") return;
+
+    if (!document.document) {
+      return reply.status(404).send({ error: "not_found", message: "Document not found" });
+    }
+
+    return documentActionResponseSchema.parse({ document: document.document });
+  });
 }
 
 type DocumentActionResult =

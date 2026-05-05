@@ -502,6 +502,34 @@ export async function queueDocumentForReprocess(
     : null;
 }
 
+export async function queueFailedDocumentForRetry(
+  projectId: string,
+  documentId: string,
+  pipelineStage: PipelineStage
+): Promise<DocumentDetail | null> {
+  const [row] = await db
+    .update(documents)
+    .set({
+      status: "queued",
+      pipelineStage,
+      errorCode: null,
+      errorMessage: null,
+      updatedAt: new Date()
+    })
+    .where(
+      and(
+        eq(documents.projectId, projectId),
+        eq(documents.id, documentId),
+        eq(documents.status, "failed")
+      )
+    )
+    .returning();
+
+  return row
+    ? mapDocumentDetail(row, await getCurrentMarkdownVersion(row.id, row.currentMarkdownVersionId))
+    : null;
+}
+
 export async function deleteDocumentDerivedDataForReprocess(documentId: string): Promise<void> {
   // Phase 3/4 derived tables plug in here; user-authored tags must stay untouched.
   void documentId;
@@ -511,14 +539,19 @@ export async function restoreQueuedDocumentStage(
   projectId: string,
   documentId: string,
   status: DocumentStatus,
-  pipelineStage: PipelineStage | null
+  pipelineStage: PipelineStage | null,
+  error?: { code: NonNullable<Document["errorCode"]>; message: string }
 ): Promise<void> {
   await db
     .update(documents)
     .set({
       status,
       pipelineStage,
-      ...(status === "failed" ? {} : { errorCode: null, errorMessage: null }),
+      ...(status === "failed"
+        ? error
+          ? { errorCode: error.code, errorMessage: error.message }
+          : {}
+        : { errorCode: null, errorMessage: null }),
       updatedAt: new Date()
     })
     .where(

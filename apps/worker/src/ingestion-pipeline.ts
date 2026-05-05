@@ -56,6 +56,35 @@ export async function processDocumentIngestion(
     return;
   }
 
+  if (data.startStage === "retry") {
+    await dependencies.deleteDocumentDerivedDataForReprocess(data.documentId);
+    const document = await dependencies.getDocument(data.projectId, data.documentId);
+
+    if (!document) {
+      throw new Error("Document not found for retry");
+    }
+
+    if (shouldRetryMarkdownify(document)) {
+      await markdownifyAndContinue(data, progress, dependencies);
+      return;
+    }
+
+    if (document.currentMarkdownVersion) {
+      await continueAutoIngestion(data.documentId, progress, dependencies);
+      return;
+    }
+
+    throw new Error("Document has no source or markdown version for retry");
+  }
+
+  await markdownifyAndContinue(data, progress, dependencies);
+}
+
+async function markdownifyAndContinue(
+  data: IngestionJobData,
+  progress: ProgressReporter,
+  dependencies: IngestionPipelineDependencies
+): Promise<void> {
   await updateStage(data.documentId, "markdownify", progress, 10, dependencies);
   const document = await dependencies.getDocument(data.projectId, data.documentId);
 
@@ -128,4 +157,11 @@ function getIngestionEventType(status: DocumentStatus): EventType {
   if (status === "failed") return "document_failed";
   if (status === "ready") return "document_ready";
   return "document_stage_changed";
+}
+
+function shouldRetryMarkdownify(document: DocumentDetail): boolean {
+  return (
+    (document.pipelineStage === "markdownify" && Boolean(document.rawContent)) ||
+    !document.currentMarkdownVersion
+  );
 }

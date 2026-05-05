@@ -5,6 +5,7 @@ import {
   deleteDocument,
   getDocument,
   markQueuedIngestionJobsFailed,
+  queueFailedDocumentForRetry,
   queueDocumentForReviewApproval,
   queueDocumentForReprocess,
   queueDocumentForStage,
@@ -176,6 +177,55 @@ export async function reprocessCurrentMarkdown(
   return queuedDocument;
 }
 
+export async function retryFailedDocumentIngestion(
+  projectId: string,
+  documentId: string
+): Promise<DocumentDetail | null> {
+  const document = await getDocument(projectId, documentId);
+
+  if (!document) return null;
+  if (document.status !== "failed") {
+    throw new Error("Document is not failed");
+  }
+  if (!document.rawContent && !document.currentMarkdownVersion) {
+    throw new Error("Document has no source or markdown version to retry");
+  }
+
+  const pipelineStage = getFailedRetryPipelineStage(document);
+  const queuedDocument = await queueFailedDocumentForRetry(projectId, documentId, pipelineStage);
+  if (!queuedDocument) {
+    throw new DocumentActionConflictError("Document is no longer failed");
+  }
+
+  const payload = {
+    projectId,
+    ingestionMode: queuedDocument.ingestionMode,
+    startStage: "retry"
+  };
+
+  try {
+    await createQueuedIngestionJob(documentId, payload);
+    await enqueueDocumentIngestion({
+      documentId,
+      projectId,
+      ingestionMode: queuedDocument.ingestionMode,
+      startStage: "retry"
+    });
+  } catch (error) {
+    await markQueuedIngestionJobsFailed(documentId);
+    await restoreQueuedDocumentStage(
+      projectId,
+      documentId,
+      document.status,
+      document.pipelineStage,
+      getDocumentFailure(document)
+    );
+    throw error;
+  }
+
+  return queuedDocument;
+}
+
 async function resolveProjectIngestionMode(
   projectIngestionMode: ProjectIngestionMode
 ): Promise<IngestionMode> {
@@ -183,4 +233,17 @@ async function resolveProjectIngestionMode(
 
   const settings = await getAppSettings(env);
   return settings.defaultIngestionMode;
+}
+
+function getDocumentFailure(
+  document: DocumentDetail
+): { code: NonNullable<DocumentDetail["errorCode"]>; message: string } | undefined {
+  if (!document.errorCode || !document.errorMessage) return undefined;
+  return { code: document.errorCode, message: document.errorMessage };
+}
+
+function getFailedRetryPipelineStage(document: DocumentDetail): "markdownify" | "chunk" {
+  if (document.currentMarkdownVersion && !document.rawContent) return "chunk";
+  if (document.currentMarkdownVersion && document.pipelineStage !== "markdownify") return "chunk";
+  return "markdownify";
 }

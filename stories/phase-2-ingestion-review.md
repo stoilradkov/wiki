@@ -152,7 +152,7 @@ This phase implements async ingestion, Gemini markdownification, Auto and Review
 - The same stream sends live updates after connection.
 - Missed events can be recovered from database state.
 
-### Story 5.7 - Handle Pipeline Failures
+### Story 5.7 - Handle Pipeline Failures [completed]
 
 **Description:** As a user, I want clear failure states and retry options so that model or quota issues do not leave documents mysterious.
 

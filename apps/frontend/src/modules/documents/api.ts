@@ -105,3 +105,13 @@ export async function reprocessCurrentMarkdown(
   );
   return response.data.document;
 }
+
+export async function retryDocumentIngestion(
+  projectId: string,
+  documentId: string
+): Promise<DocumentDetail> {
+  const response = await api.post<DocumentActionResponse>(
+    `/projects/${projectId}/documents/${documentId}/retry`
+  );
+  return response.data.document;
+}

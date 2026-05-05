@@ -41,6 +41,16 @@ const document: DocumentDetail = {
   updatedAt: "2026-05-04T00:00:00.000Z"
 };
 
+const currentMarkdownVersion = {
+  author: "ai" as const,
+  createdAt: "2026-05-04T00:00:01.000Z",
+  documentId: baseJob.documentId,
+  id: "33333333-3333-4333-8333-333333333333",
+  markdown: "# Trusted source\n\nUseful content.",
+  markdownHash: "markdown-hash",
+  versionNumber: 1
+};
+
 describe("processDocumentIngestion", () => {
   it("continues auto mode through downstream stages and marks document ready", async () => {
     const progressEvents: DocumentIngestionEvent[] = [];
@@ -160,18 +170,108 @@ describe("processDocumentIngestion", () => {
     expect(dependencies.markdownifyRawContent).not.toHaveBeenCalled();
     expect(dependencies.createMarkdownVersionFromMarkdownify).not.toHaveBeenCalled();
   });
+
+  it("cleans derived data before retrying full pipeline from raw content", async () => {
+    const progressEvents: DocumentIngestionEvent[] = [];
+    const stageTransitions: Array<PipelineStage> = [];
+    const dependencies = createDependencies(stageTransitions);
+
+    await processDocumentIngestion(
+      { ...baseJob, startStage: "retry" },
+      async (event) => {
+        progressEvents.push(event);
+      },
+      dependencies
+    );
+
+    expect(dependencies.deleteDocumentDerivedDataForReprocess).toHaveBeenCalledWith(
+      baseJob.documentId
+    );
+    expect(stageTransitions).toEqual([
+      "markdownify",
+      "review",
+      "chunk",
+      "embed",
+      "extract",
+      "graph",
+      "complete"
+    ]);
+    expect(dependencies.markdownifyRawContent).toHaveBeenCalledWith(document.rawContent);
+    expect(dependencies.createMarkdownVersionFromMarkdownify).toHaveBeenCalledWith(
+      baseJob.documentId,
+      markdownifyResult
+    );
+  });
+
+  it("retries from current markdown when raw content is unavailable", async () => {
+    const progressEvents: DocumentIngestionEvent[] = [];
+    const stageTransitions: Array<PipelineStage> = [];
+    const dependencies = createDependencies(stageTransitions, {
+      ...document,
+      currentMarkdownVersion,
+      currentMarkdownVersionId: currentMarkdownVersion.id,
+      pipelineStage: "chunk",
+      rawContent: null,
+      rawContentStored: false
+    });
+
+    await processDocumentIngestion(
+      { ...baseJob, startStage: "retry" },
+      async (event) => {
+        progressEvents.push(event);
+      },
+      dependencies
+    );
+
+    expect(dependencies.deleteDocumentDerivedDataForReprocess).toHaveBeenCalledWith(
+      baseJob.documentId
+    );
+    expect(stageTransitions).toEqual(["chunk", "embed", "extract", "graph", "complete"]);
+    expect(dependencies.markdownifyRawContent).not.toHaveBeenCalled();
+    expect(dependencies.createMarkdownVersionFromMarkdownify).not.toHaveBeenCalled();
+  });
+
+  it("retries downstream failures from current markdown even when raw content is stored", async () => {
+    const progressEvents: DocumentIngestionEvent[] = [];
+    const stageTransitions: Array<PipelineStage> = [];
+    const dependencies = createDependencies(stageTransitions, {
+      ...document,
+      currentMarkdownVersion,
+      currentMarkdownVersionId: currentMarkdownVersion.id,
+      pipelineStage: "embed",
+      status: "failed"
+    });
+
+    await processDocumentIngestion(
+      { ...baseJob, startStage: "retry" },
+      async (event) => {
+        progressEvents.push(event);
+      },
+      dependencies
+    );
+
+    expect(dependencies.deleteDocumentDerivedDataForReprocess).toHaveBeenCalledWith(
+      baseJob.documentId
+    );
+    expect(stageTransitions).toEqual(["chunk", "embed", "extract", "graph", "complete"]);
+    expect(dependencies.markdownifyRawContent).not.toHaveBeenCalled();
+    expect(dependencies.createMarkdownVersionFromMarkdownify).not.toHaveBeenCalled();
+  });
 });
 
-function createDependencies(stageTransitions: Array<PipelineStage>): IngestionPipelineDependencies {
+function createDependencies(
+  stageTransitions: Array<PipelineStage>,
+  sourceDocument = document
+): IngestionPipelineDependencies {
   return {
-    createMarkdownVersionFromMarkdownify: vi.fn(async () => document),
+    createMarkdownVersionFromMarkdownify: vi.fn(async () => sourceDocument),
     deleteDocumentDerivedDataForReprocess: vi.fn(async () => undefined),
-    getDocument: vi.fn(async () => document),
+    getDocument: vi.fn(async () => sourceDocument),
     markdownifyRawContent: vi.fn(async () => markdownifyResult),
     updateDocumentProgress: vi.fn(async (_documentId, status, stage) => {
       stageTransitions.push(stage);
       return {
-        ...document,
+        ...sourceDocument,
         pipelineStage: stage,
         status,
         updatedAt: "2026-05-04T00:00:01.000Z"
