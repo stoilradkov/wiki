@@ -6,6 +6,7 @@ import {
   getDocument,
   markQueuedIngestionJobsFailed,
   queueDocumentForReviewApproval,
+  queueDocumentForReprocess,
   queueDocumentForStage,
   restoreQueuedDocumentStage
 } from "@wiki/backend/modules/documents/repository";
@@ -126,6 +127,45 @@ export async function rerunDocumentMarkdownify(
       projectId,
       ingestionMode: queuedDocument.ingestionMode,
       startStage: "markdownify"
+    });
+  } catch (error) {
+    await markQueuedIngestionJobsFailed(documentId);
+    await restoreQueuedDocumentStage(projectId, documentId, document.status, document.pipelineStage);
+    throw error;
+  }
+
+  return queuedDocument;
+}
+
+export async function reprocessCurrentMarkdown(
+  projectId: string,
+  documentId: string
+): Promise<DocumentDetail | null> {
+  const document = await getDocument(projectId, documentId);
+
+  if (!document) return null;
+  if (!document.currentMarkdownVersion) {
+    throw new Error("Document has no markdown version to reprocess");
+  }
+
+  const queuedDocument = await queueDocumentForReprocess(projectId, documentId, document.status);
+  if (!queuedDocument) {
+    throw new DocumentActionConflictError("Document is not ready for reprocessing");
+  }
+
+  const payload = {
+    projectId,
+    ingestionMode: queuedDocument.ingestionMode,
+    startStage: "reprocess"
+  };
+
+  try {
+    await createQueuedIngestionJob(documentId, payload);
+    await enqueueDocumentIngestion({
+      documentId,
+      projectId,
+      ingestionMode: queuedDocument.ingestionMode,
+      startStage: "reprocess"
     });
   } catch (error) {
     await markQueuedIngestionJobsFailed(documentId);

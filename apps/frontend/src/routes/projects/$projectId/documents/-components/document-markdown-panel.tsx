@@ -1,7 +1,7 @@
 import { useBlocker } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Save, RotateCcw } from "lucide-react";
+import { Save, RotateCcw, RefreshCw } from "lucide-react";
 import type { DocumentDetail } from "@wiki/shared";
 import {
   AlertDialog,
@@ -17,12 +17,20 @@ import { Button } from "@wiki/frontend/components/ui/button";
 import { Label } from "@wiki/frontend/components/ui/label";
 import { Textarea } from "@wiki/frontend/components/ui/textarea";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from "@wiki/frontend/components/ui/tooltip";
+import {
   FormErrorBanner,
   LoadingLabel,
   getErrorMessage
 } from "@wiki/frontend/components/interaction";
 import { documentQueryKeys } from "@wiki/frontend/modules/documents/query-keys";
-import { updateDocumentMarkdown } from "@wiki/frontend/modules/documents/api";
+import {
+  reprocessCurrentMarkdown,
+  updateDocumentMarkdown
+} from "@wiki/frontend/modules/documents/api";
 import { MarkdownPreview } from "@wiki/frontend/routes/projects/$projectId/documents/-components/markdown-preview";
 import { DocumentVersionHistory } from "@wiki/frontend/routes/projects/$projectId/documents/-components/document-version-history";
 import { DocumentReviewActions } from "@wiki/frontend/routes/projects/$projectId/documents/-components/document-review-actions";
@@ -37,6 +45,7 @@ export function DocumentMarkdownPanel({ document, projectId }: DocumentMarkdownP
   const savedMarkdown = document.currentMarkdownVersion?.markdown ?? "";
   const [draftMarkdown, setDraftMarkdown] = useState(savedMarkdown);
   const isDirty = draftMarkdown !== savedMarkdown;
+  const hasStaleDerivedData = isReprocessableStatus(document.status) && document.status !== "ready";
   const isProceedingRef = useRef(false);
   const blocker = useBlocker({
     disabled: !isDirty,
@@ -59,10 +68,20 @@ export function DocumentMarkdownPanel({ document, projectId }: DocumentMarkdownP
       });
     }
   });
+  const reprocessMutation = useMutation({
+    mutationFn: () => reprocessCurrentMarkdown(projectId, document.id),
+    onSuccess: (updatedDocument) => {
+      queryClient.setQueryData(documentQueryKeys.detail(projectId, document.id), updatedDocument);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: documentQueryKeys.all(projectId) })
+  });
   const versionLabel = useMemo(() => {
     if (!document.currentMarkdownVersion) return "No version";
     return `v${document.currentMarkdownVersion.versionNumber} / ${document.currentMarkdownVersion.author}`;
   }, [document.currentMarkdownVersion]);
+  const reprocessTooltip = isDirty
+    ? "Save markdown before reprocessing"
+    : "Reprocess current markdown version";
 
   useEffect(() => {
     setDraftMarkdown(savedMarkdown);
@@ -96,6 +115,10 @@ export function DocumentMarkdownPanel({ document, projectId }: DocumentMarkdownP
               <span className="rounded-full bg-(--amber-dim) px-2.5 py-0.75 text-badge font-medium text-amber">
                 Unsaved edits
               </span>
+            ) : hasStaleDerivedData ? (
+              <span className="rounded-full bg-(--amber-dim) px-2.5 py-0.75 text-badge font-medium text-amber">
+                Reprocess needed
+              </span>
             ) : null}
             <Button
               disabled={!isDirty || saveMarkdownMutation.isPending}
@@ -115,7 +138,7 @@ export function DocumentMarkdownPanel({ document, projectId }: DocumentMarkdownP
               onClick={() => saveMarkdownMutation.mutate()}
               title={!isDirty ? "No edits to save" : "Save markdown as a new version"}
               type="button"
-              variant={document.status === "awaiting_review" ? "ghost" : "default"}
+              variant={isDirty && !hasStaleDerivedData ? "default" : "ghost"}
             >
               {saveMarkdownMutation.isPending ? (
                 <LoadingLabel>Saving...</LoadingLabel>
@@ -126,11 +149,51 @@ export function DocumentMarkdownPanel({ document, projectId }: DocumentMarkdownP
                 </>
               )}
             </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex">
+                  <Button
+                    aria-busy={reprocessMutation.isPending}
+                    disabled={
+                      isDirty ||
+                      saveMarkdownMutation.isPending ||
+                      reprocessMutation.isPending ||
+                      !document.currentMarkdownVersion ||
+                      !isReprocessableStatus(document.status)
+                    }
+                    onClick={() => reprocessMutation.mutate()}
+                    type="button"
+                    variant={hasStaleDerivedData ? "default" : "ghost"}
+                  >
+                    {reprocessMutation.isPending ? (
+                      <LoadingLabel>Reprocessing...</LoadingLabel>
+                    ) : (
+                      <>
+                        <RefreshCw className="size-3.75" />
+                        Reprocess
+                      </>
+                    )}
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>{reprocessTooltip}</TooltipContent>
+            </Tooltip>
           </div>
         </div>
+        {hasStaleDerivedData ? (
+          <div className="rounded-md border-[0.5px] border-amber bg-(--amber-dim) p-3.5 text-ui text-foreground">
+            Derived search and graph data are stale. Reprocess when ready to rebuild from current
+            markdown.
+          </div>
+        ) : null}
         <FormErrorBanner>
           {saveMarkdownMutation.isError
             ? getErrorMessage(saveMarkdownMutation.error, "Could not save markdown. Try again.")
+            : reprocessMutation.isError
+              ? getErrorMessage(
+                  reprocessMutation.error,
+                  "Could not start reprocessing. Try again."
+                )
             : null}
         </FormErrorBanner>
         <div className="grid grid-cols-2 items-start gap-3 max-[900px]:grid-cols-1">
@@ -181,4 +244,8 @@ export function DocumentMarkdownPanel({ document, projectId }: DocumentMarkdownP
       </AlertDialog>
     </>
   );
+}
+
+function isReprocessableStatus(status: DocumentDetail["status"]): boolean {
+  return status === "dirty" || status === "needs_reprocess" || status === "ready";
 }

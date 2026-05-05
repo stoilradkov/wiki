@@ -300,7 +300,7 @@ export const ingestionJobDataSchema = z.object({
   documentId: z.string().uuid(),
   projectId: z.string().uuid(),
   ingestionMode: ingestionModeSchema,
-  startStage: z.enum(["markdownify", "chunk"]).optional()
+  startStage: z.enum(["markdownify", "chunk", "reprocess"]).optional()
 });
 
 export type IngestionJobData = z.infer<typeof ingestionJobDataSchema>;

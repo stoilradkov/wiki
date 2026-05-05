@@ -1,5 +1,6 @@
 import {
   createMarkdownVersionFromMarkdownify,
+  deleteDocumentDerivedDataForReprocess,
   getDocument,
   updateDocumentProgress,
   updateIngestionJobStatus
@@ -28,6 +29,7 @@ async function processDocument(
 ): Promise<void> {
   await processDocumentIngestion(data, progress, {
     createMarkdownVersionFromMarkdownify,
+    deleteDocumentDerivedDataForReprocess,
     getDocument,
     markdownifyRawContent,
     updateDocumentProgress,

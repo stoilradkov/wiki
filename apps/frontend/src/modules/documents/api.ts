@@ -95,3 +95,13 @@ export async function rerunDocumentMarkdownify(
   );
   return response.data.document;
 }
+
+export async function reprocessCurrentMarkdown(
+  projectId: string,
+  documentId: string
+): Promise<DocumentDetail> {
+  const response = await api.post<DocumentActionResponse>(
+    `/projects/${projectId}/documents/${documentId}/markdown/reprocess`
+  );
+  return response.data.document;
+}

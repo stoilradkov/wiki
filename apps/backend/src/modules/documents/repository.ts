@@ -268,7 +268,7 @@ export async function updateDocumentMarkdown(
       .limit(1);
 
     if (previousVersion?.markdownHash === markdownHash) {
-      const nextStatus = documentRow.status === "ready" ? "dirty" : documentRow.status;
+      const nextStatus = documentRow.status === "ready" ? "needs_reprocess" : documentRow.status;
       const [row] = await transaction
         .update(documents)
         .set({
@@ -301,7 +301,7 @@ export async function updateDocumentMarkdown(
       throw new Error("Markdown edit version insert returned no row");
     }
 
-    const nextStatus = documentRow.status === "ready" ? "dirty" : documentRow.status;
+    const nextStatus = documentRow.status === "ready" ? "needs_reprocess" : documentRow.status;
     const [row] = await transaction
       .update(documents)
       .set({
@@ -422,6 +422,40 @@ export async function queueDocumentForReviewApproval(
   return row
     ? mapDocumentDetail(row, await getCurrentMarkdownVersion(row.id, row.currentMarkdownVersionId))
     : null;
+}
+
+export async function queueDocumentForReprocess(
+  projectId: string,
+  documentId: string,
+  expectedStatus: DocumentStatus
+): Promise<DocumentDetail | null> {
+  if (!["dirty", "needs_reprocess", "ready"].includes(expectedStatus)) return null;
+
+  const [row] = await db
+    .update(documents)
+    .set({
+      status: "queued",
+      pipelineStage: "chunk",
+      updatedAt: new Date()
+    })
+    .where(
+      and(
+        eq(documents.projectId, projectId),
+        eq(documents.id, documentId),
+        eq(documents.status, expectedStatus),
+        isNotNull(documents.currentMarkdownVersionId)
+      )
+    )
+    .returning();
+
+  return row
+    ? mapDocumentDetail(row, await getCurrentMarkdownVersion(row.id, row.currentMarkdownVersionId))
+    : null;
+}
+
+export async function deleteDocumentDerivedDataForReprocess(documentId: string): Promise<void> {
+  // Phase 3/4 derived tables plug in here; user-authored tags must stay untouched.
+  void documentId;
 }
 
 export async function restoreQueuedDocumentStage(

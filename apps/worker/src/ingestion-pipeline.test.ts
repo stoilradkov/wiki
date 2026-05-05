@@ -130,11 +130,40 @@ describe("processDocumentIngestion", () => {
       "completed"
     );
   });
+
+  it("cleans derived data before reprocessing current markdown", async () => {
+    const progressEvents: DocumentIngestionEvent[] = [];
+    const stageTransitions: Array<PipelineStage> = [];
+    const dependencies = createDependencies(stageTransitions);
+
+    await processDocumentIngestion(
+      { ...baseJob, startStage: "reprocess" },
+      async (event) => {
+        progressEvents.push(event);
+      },
+      dependencies
+    );
+
+    expect(dependencies.deleteDocumentDerivedDataForReprocess).toHaveBeenCalledWith(
+      baseJob.documentId
+    );
+    expect(stageTransitions).toEqual(["chunk", "embed", "extract", "graph", "complete"]);
+    expect(progressEvents.map((event) => event.document.pipelineStage)).toEqual([
+      "chunk",
+      "embed",
+      "extract",
+      "graph",
+      "complete"
+    ]);
+    expect(dependencies.markdownifyRawContent).not.toHaveBeenCalled();
+    expect(dependencies.createMarkdownVersionFromMarkdownify).not.toHaveBeenCalled();
+  });
 });
 
 function createDependencies(stageTransitions: Array<PipelineStage>): IngestionPipelineDependencies {
   return {
     createMarkdownVersionFromMarkdownify: vi.fn(async () => document),
+    deleteDocumentDerivedDataForReprocess: vi.fn(async () => undefined),
     getDocument: vi.fn(async () => document),
     markdownifyRawContent: vi.fn(async () => markdownifyResult),
     updateDocumentProgress: vi.fn(async (_documentId, status, stage) => {

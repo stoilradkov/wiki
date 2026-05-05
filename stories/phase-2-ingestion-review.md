@@ -202,7 +202,7 @@ This phase implements async ingestion, Gemini markdownification, Auto and Review
 - Only the current version participates in active search, chat, and graph data.
 - Markdown version metadata includes timestamps and hashes.
 
-### Story 6.3 - Reprocess Current Markdown Explicitly
+### Story 6.3 - Reprocess Current Markdown Explicitly [completed]
 
 **Description:** As a user, I want to explicitly reprocess edited markdown so that derived search and graph data update only when I choose.
 

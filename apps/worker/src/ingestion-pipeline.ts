@@ -17,6 +17,7 @@ export type IngestionPipelineDependencies = {
     documentId: string,
     result: MarkdownifyResult
   ) => Promise<DocumentDetail>;
+  deleteDocumentDerivedDataForReprocess: (documentId: string) => Promise<void>;
   getDocument: (projectId: string, documentId: string) => Promise<DocumentDetail | null>;
   markdownifyRawContent: (rawContent: string) => Promise<MarkdownifyResult>;
   updateDocumentProgress: (
@@ -45,6 +46,12 @@ export async function processDocumentIngestion(
   await dependencies.updateIngestionJobStatus(data.documentId, "processing");
 
   if (data.startStage === "chunk") {
+    await continueAutoIngestion(data.documentId, progress, dependencies);
+    return;
+  }
+
+  if (data.startStage === "reprocess") {
+    await dependencies.deleteDocumentDerivedDataForReprocess(data.documentId);
     await continueAutoIngestion(data.documentId, progress, dependencies);
     return;
   }
