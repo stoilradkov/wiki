@@ -3,7 +3,9 @@ import {
   createMarkdownVersionFromMarkdownify,
   deleteDocumentDerivedDataForReprocess,
   getDocument,
+  listCurrentDocumentChunksForEmbedding,
   markDocumentFailed,
+  updateDocumentChunkEmbeddings,
   updateDocumentProgress,
   updateIngestionJobStatus
 } from "@wiki/backend/modules/documents/repository";
@@ -23,6 +25,7 @@ import {
 import { env } from "@wiki/worker/env";
 import { processDocumentIngestion } from "@wiki/worker/ingestion-pipeline";
 import { classifyIngestionError } from "@wiki/worker/ingestion-errors";
+import { embedCurrentDocumentChunks } from "@wiki/worker/embeddings";
 import { markdownifyRawContent } from "@wiki/worker/markdownify";
 import { Worker } from "bullmq";
 
@@ -34,6 +37,11 @@ async function processDocument(
     chunkCurrentMarkdownVersion,
     createMarkdownVersionFromMarkdownify,
     deleteDocumentDerivedDataForReprocess,
+    embedCurrentDocumentChunks: (documentId) =>
+      embedCurrentDocumentChunks(documentId, {
+        listCurrentDocumentChunksForEmbedding,
+        updateDocumentChunkEmbeddings
+      }),
     getDocument,
     markdownifyRawContent,
     updateDocumentProgress,

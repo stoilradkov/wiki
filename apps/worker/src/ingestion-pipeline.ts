@@ -20,6 +20,7 @@ export type IngestionPipelineDependencies = {
   ) => Promise<DocumentDetail>;
   deleteDocumentDerivedDataForReprocess: (documentId: string) => Promise<void>;
   getDocument: (projectId: string, documentId: string) => Promise<DocumentDetail | null>;
+  embedCurrentDocumentChunks: (documentId: string) => Promise<unknown>;
   markdownifyRawContent: (rawContent: string) => Promise<MarkdownifyResult>;
   updateDocumentProgress: (
     documentId: string,
@@ -116,6 +117,9 @@ async function continueAutoIngestion(
     await updateStage(documentId, step.stage, progress, step.progress, dependencies);
     if (step.stage === "chunk") {
       await dependencies.chunkCurrentMarkdownVersion(documentId);
+    }
+    if (step.stage === "embed") {
+      await dependencies.embedCurrentDocumentChunks(documentId);
     }
   }
 

@@ -18,6 +18,7 @@ import {
   type CheckDuplicateDocumentRequest,
   type CreateDocumentRequest,
   type DocumentChunk,
+  type EmbeddingTaskType,
   type DocumentIngestionEvent,
   type DocumentStatus,
   type Document,
@@ -91,6 +92,10 @@ function mapDocumentChunk(row: typeof documentChunks.$inferSelect): DocumentChun
       start: row.startOffset,
       end: row.endOffset
     },
+    embeddingModel: row.embeddingModel,
+    embeddingDimension: row.embeddingDimension,
+    embeddingTaskType: row.embeddingTaskType,
+    embeddedAt: row.embeddedAt ? toIso(row.embeddedAt) : null,
     createdAt: toIso(row.createdAt)
   });
 }
@@ -645,6 +650,77 @@ export async function chunkCurrentMarkdownVersion(documentId: string): Promise<D
   });
 
   return chunks.map(mapDocumentChunk);
+}
+
+export type ChunkForEmbedding = {
+  content: string;
+  id: string;
+};
+
+export type ChunkEmbeddingUpdate = {
+  chunkId: string;
+  embedding: number[];
+};
+
+export async function listCurrentDocumentChunksForEmbedding(
+  documentId: string
+): Promise<ChunkForEmbedding[]> {
+  const [documentRow] = await db
+    .select({ currentMarkdownVersionId: documents.currentMarkdownVersionId })
+    .from(documents)
+    .where(eq(documents.id, documentId))
+    .limit(1);
+
+  if (!documentRow) {
+    throw new Error("Document not found for embedding");
+  }
+
+  if (!documentRow.currentMarkdownVersionId) {
+    throw new Error("Document has no current markdown version for embedding");
+  }
+
+  return db
+    .select({
+      content: documentChunks.content,
+      id: documentChunks.id
+    })
+    .from(documentChunks)
+    .where(eq(documentChunks.markdownVersionId, documentRow.currentMarkdownVersionId))
+    .orderBy(documentChunks.chunkIndex);
+}
+
+export async function updateDocumentChunkEmbeddings(
+  updates: ChunkEmbeddingUpdate[],
+  metadata: {
+    dimension: number;
+    embeddedAt: Date;
+    model: string;
+    taskType: EmbeddingTaskType;
+  }
+): Promise<void> {
+  for (const update of updates) {
+    if (update.embedding.length !== metadata.dimension) {
+      throw new Error(
+        `Embedding dimension mismatch for chunk ${update.chunkId}: expected ${metadata.dimension}, got ${update.embedding.length}`
+      );
+    }
+
+    const [row] = await db
+      .update(documentChunks)
+      .set({
+        embeddedAt: metadata.embeddedAt,
+        embedding: update.embedding,
+        embeddingDimension: metadata.dimension,
+        embeddingModel: metadata.model,
+        embeddingTaskType: metadata.taskType
+      })
+      .where(eq(documentChunks.id, update.chunkId))
+      .returning({ id: documentChunks.id });
+
+    if (!row) {
+      throw new Error("Document chunk embedding update returned no row");
+    }
+  }
 }
 
 export async function restoreQueuedDocumentStage(

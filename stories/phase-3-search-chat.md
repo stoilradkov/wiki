@@ -23,7 +23,7 @@ This phase implements semantic chunking, Gemini embeddings, full-text indexing, 
 - Chunks do not split code blocks or tables unless unavoidable.
 - Chunks store heading path, index, content hash, and markdown offsets.
 
-### Story 7.2 - Generate Batched Embeddings
+### Story 7.2 - Generate Batched Embeddings [completed]
 
 **Description:** As a user, I want chunks embedded efficiently so that documents become searchable by meaning.
 

@@ -75,6 +75,7 @@ describe("processDocumentIngestion", () => {
       "complete"
     ]);
     expect(dependencies.chunkCurrentMarkdownVersion).toHaveBeenCalledWith(baseJob.documentId);
+    expect(dependencies.embedCurrentDocumentChunks).toHaveBeenCalledWith(baseJob.documentId);
     expect(progressEvents.map((event) => event.document.pipelineStage)).toEqual([
       "markdownify",
       "review",
@@ -131,6 +132,7 @@ describe("processDocumentIngestion", () => {
 
     expect(stageTransitions).toEqual(["chunk", "embed", "extract", "graph", "complete"]);
     expect(dependencies.chunkCurrentMarkdownVersion).toHaveBeenCalledWith(baseJob.documentId);
+    expect(dependencies.embedCurrentDocumentChunks).toHaveBeenCalledWith(baseJob.documentId);
     expect(progressEvents.map((event) => event.document.pipelineStage)).toEqual([
       "chunk",
       "embed",
@@ -163,6 +165,7 @@ describe("processDocumentIngestion", () => {
     );
     expect(stageTransitions).toEqual(["chunk", "embed", "extract", "graph", "complete"]);
     expect(dependencies.chunkCurrentMarkdownVersion).toHaveBeenCalledWith(baseJob.documentId);
+    expect(dependencies.embedCurrentDocumentChunks).toHaveBeenCalledWith(baseJob.documentId);
     expect(progressEvents.map((event) => event.document.pipelineStage)).toEqual([
       "chunk",
       "embed",
@@ -231,6 +234,7 @@ describe("processDocumentIngestion", () => {
     );
     expect(stageTransitions).toEqual(["chunk", "embed", "extract", "graph", "complete"]);
     expect(dependencies.chunkCurrentMarkdownVersion).toHaveBeenCalledWith(baseJob.documentId);
+    expect(dependencies.embedCurrentDocumentChunks).toHaveBeenCalledWith(baseJob.documentId);
     expect(dependencies.markdownifyRawContent).not.toHaveBeenCalled();
     expect(dependencies.createMarkdownVersionFromMarkdownify).not.toHaveBeenCalled();
   });
@@ -259,6 +263,7 @@ describe("processDocumentIngestion", () => {
     );
     expect(stageTransitions).toEqual(["chunk", "embed", "extract", "graph", "complete"]);
     expect(dependencies.chunkCurrentMarkdownVersion).toHaveBeenCalledWith(baseJob.documentId);
+    expect(dependencies.embedCurrentDocumentChunks).toHaveBeenCalledWith(baseJob.documentId);
     expect(dependencies.markdownifyRawContent).not.toHaveBeenCalled();
     expect(dependencies.createMarkdownVersionFromMarkdownify).not.toHaveBeenCalled();
   });
@@ -272,6 +277,7 @@ function createDependencies(
     chunkCurrentMarkdownVersion: vi.fn(async () => []),
     createMarkdownVersionFromMarkdownify: vi.fn(async () => sourceDocument),
     deleteDocumentDerivedDataForReprocess: vi.fn(async () => undefined),
+    embedCurrentDocumentChunks: vi.fn(async () => undefined),
     getDocument: vi.fn(async () => sourceDocument),
     markdownifyRawContent: vi.fn(async () => markdownifyResult),
     updateDocumentProgress: vi.fn(async (_documentId, status, stage) => {

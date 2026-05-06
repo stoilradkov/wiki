@@ -209,6 +209,12 @@ export const markdownChunkOffsetSchema = z.object({
 
 export type MarkdownChunkOffset = z.infer<typeof markdownChunkOffsetSchema>;
 
+export const embeddingTaskTypeValues = ["RETRIEVAL_DOCUMENT", "RETRIEVAL_QUERY"] as const;
+
+export const embeddingTaskTypeSchema = z.enum(embeddingTaskTypeValues);
+
+export type EmbeddingTaskType = z.infer<typeof embeddingTaskTypeSchema>;
+
 export const documentChunkSchema = z.object({
   id: z.string().uuid(),
   documentId: z.string().uuid(),
@@ -219,6 +225,10 @@ export const documentChunkSchema = z.object({
   contentHash: z.string().min(1),
   tokenCount: z.number().int().min(1),
   markdownOffsets: markdownChunkOffsetSchema,
+  embeddingModel: z.string().min(1).nullable(),
+  embeddingDimension: z.number().int().min(1).nullable(),
+  embeddingTaskType: embeddingTaskTypeSchema.nullable(),
+  embeddedAt: z.string().datetime().nullable(),
   createdAt: z.string().datetime()
 });
 

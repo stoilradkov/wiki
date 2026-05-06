@@ -1,11 +1,13 @@
 import {
   documentStatusValues,
+  embeddingTaskTypeValues,
   eventTypeValues,
   ingestionModeValues,
   pipelineStageValues,
   extractionProfileValues,
   projectIngestionModeValues,
   type DocumentStatus,
+  type EmbeddingTaskType,
   type DocumentIngestionEvent,
   type EventType,
   type ExtractionProfile,
@@ -24,7 +26,8 @@ import {
   text,
   timestamp,
   uniqueIndex,
-  uuid
+  uuid,
+  vector
 } from "drizzle-orm/pg-core";
 
 export const projects = pgTable("projects", {
@@ -160,6 +163,13 @@ export const documentChunks = pgTable(
     tokenCount: integer("token_count").notNull(),
     startOffset: integer("start_offset").notNull(),
     endOffset: integer("end_offset").notNull(),
+    embedding: vector("embedding", { dimensions: 768 }),
+    embeddingModel: text("embedding_model"),
+    embeddingDimension: integer("embedding_dimension"),
+    embeddingTaskType: text("embedding_task_type", {
+      enum: embeddingTaskTypeValues
+    }).$type<EmbeddingTaskType>(),
+    embeddedAt: timestamp("embedded_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
   },
   (table) => [
