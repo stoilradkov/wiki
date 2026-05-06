@@ -138,7 +138,7 @@ This phase implements semantic chunking, Gemini embeddings, full-text indexing, 
 - General model knowledge is not used by default.
 - The answer includes citations for source-backed claims.
 
-### Story 8.5 - Stream Chat Responses
+### Story 8.5 - Stream Chat Responses [completed]
 
 **Description:** As a user, I want chat answers to stream as they are generated so that the app feels responsive.
 
