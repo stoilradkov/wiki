@@ -1,3 +1,4 @@
+import { Badge } from "@wiki/frontend/components/ui/badge";
 import type { ChatMessage } from "@wiki/shared";
 import { Bot, User } from "lucide-react";
 
@@ -51,6 +52,23 @@ export function ChatMessageList({ messages }: ChatMessageListProps) {
                 {message.assistantStatus}
               </p>
             ) : null}
+            {message.role === "assistant" ? (
+              <div className="mt-3 flex flex-wrap gap-2 font-mono text-caption text-faint">
+                {message.scopeSnapshot ? (
+                  <Badge className="font-mono" variant="queued">
+                    scope {formatScope(message.scopeSnapshot)}
+                  </Badge>
+                ) : null}
+                <Badge className="font-mono" variant="queued">
+                  chunks {message.retrievedChunkReferences.length}
+                </Badge>
+                {message.modelMetadata ? (
+                  <Badge className="font-mono" variant="queued">
+                    model {message.modelMetadata.generationModel}
+                  </Badge>
+                ) : null}
+              </div>
+            ) : null}
           </div>
           {message.role === "user" ? (
             <div className="mt-1 flex size-8 shrink-0 items-center justify-center rounded-md border-[0.5px] border-accent bg-primary text-primary-foreground">
@@ -61,4 +79,11 @@ export function ChatMessageList({ messages }: ChatMessageListProps) {
       ))}
     </div>
   );
+}
+
+function formatScope(scope: ChatMessage["scopeSnapshot"]): string {
+  if (!scope) return "unknown";
+  if (scope.scope === "current_project") return "current project";
+  if (scope.scope === "all_projects") return "all projects";
+  return `${scope.selectedProjectIds.length} selected`;
 }

@@ -106,7 +106,7 @@ This phase implements semantic chunking, Gemini embeddings, full-text indexing, 
 - Assistant messages store status.
 - Chat history survives page refresh.
 
-### Story 8.2 - Store Per-Message Scope Snapshots
+### Story 8.2 - Store Per-Message Scope Snapshots [completed]
 
 **Description:** As a user, I want each chat answer to remember the scope it used so that old answers remain explainable.
 

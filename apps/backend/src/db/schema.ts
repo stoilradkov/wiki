@@ -10,6 +10,9 @@ import {
   projectIngestionModeValues,
   type AssistantMessageStatus,
   type ChatMessageRole,
+  type ChatModelMetadata,
+  type ChatRetrievedChunkReference,
+  type ChatRetrievalMetadata,
   type ChatScope,
   type DocumentStatus,
   type EmbeddingTaskType,
@@ -246,6 +249,12 @@ export const chatMessages = pgTable(
       enum: assistantMessageStatusValues
     }).$type<AssistantMessageStatus>(),
     scopeSnapshot: jsonb("scope_snapshot").$type<ChatScope>(),
+    retrievedChunkReferences: jsonb("retrieved_chunk_references")
+      .$type<ChatRetrievedChunkReference[]>()
+      .notNull()
+      .default([]),
+    modelMetadata: jsonb("model_metadata").$type<ChatModelMetadata>(),
+    retrievalMetadata: jsonb("retrieval_metadata").$type<ChatRetrievalMetadata>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
   },

@@ -1,8 +1,11 @@
 import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@wiki/backend/db/client";
 import { chatMessages, chatThreads } from "@wiki/backend/db/schema";
+import { env } from "@wiki/backend/env";
 import {
   chatMessageSchema,
+  chatModelMetadataSchema,
+  chatRetrievalMetadataSchema,
   chatScopeSchema,
   chatThreadDetailSchema,
   chatThreadSchema,
@@ -35,6 +38,9 @@ function mapChatMessage(row: typeof chatMessages.$inferSelect): ChatMessage {
     content: row.content,
     assistantStatus: row.assistantStatus ?? null,
     scopeSnapshot: row.scopeSnapshot ?? null,
+    retrievedChunkReferences: row.retrievedChunkReferences,
+    modelMetadata: row.modelMetadata ?? null,
+    retrievalMetadata: row.retrievalMetadata ?? null,
     createdAt: toIso(row.createdAt),
     updatedAt: toIso(row.updatedAt)
   });
@@ -117,6 +123,21 @@ export async function createChatMessage(
     input.scopeSnapshot ?? thread.defaultScope
   );
   const title = thread.messages.length === 0 ? makeThreadTitle(input.content) : thread.title;
+  const trimmedContent = input.content.trim();
+  const modelMetadata = chatModelMetadataSchema.parse({
+    provider: "gemini",
+    generationModel: env.AI_GENERATION_MODEL,
+    embeddingModel: env.AI_EMBEDDING_MODEL,
+    embeddingDimension: env.AI_EMBEDDING_DIMENSION,
+    thinkingBudget: env.AI_THINKING_BUDGET_CHAT
+  });
+  const retrievalMetadata = chatRetrievalMetadataSchema.parse({
+    query: trimmedContent,
+    scope: scopeSnapshot,
+    requestedAt: toIso(now),
+    limit: 8,
+    retrievedChunkCount: 0
+  });
 
   await db.transaction(async (tx) => {
     const insertedMessages = await tx
@@ -125,14 +146,18 @@ export async function createChatMessage(
         {
           threadId,
           role: "user",
-          content: input.content.trim(),
+          content: trimmedContent,
           scopeSnapshot
         },
         {
           threadId,
           role: "assistant",
           content: "",
-          assistantStatus: "pending"
+          assistantStatus: "pending",
+          scopeSnapshot,
+          retrievedChunkReferences: [],
+          modelMetadata,
+          retrievalMetadata
         }
       ])
       .returning();

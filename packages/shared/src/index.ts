@@ -433,6 +433,41 @@ export const chatScopeSchema = z.object({
 
 export type ChatScope = z.infer<typeof chatScopeSchema>;
 
+export const chatRetrievedChunkReferenceSchema = z.object({
+  chunkId: z.string().uuid(),
+  documentId: z.string().uuid(),
+  markdownVersionId: z.string().uuid(),
+  projectId: z.string().uuid(),
+  chunkIndex: z.number().int().min(0),
+  headingPath: z.array(z.string().min(1)),
+  documentTitle: z.string().nullable(),
+  projectName: z.string().min(1),
+  rank: z.number().nonnegative().nullable(),
+  snippet: z.string().min(1)
+});
+
+export type ChatRetrievedChunkReference = z.infer<typeof chatRetrievedChunkReferenceSchema>;
+
+export const chatModelMetadataSchema = z.object({
+  provider: z.literal("gemini"),
+  generationModel: z.string().min(1),
+  embeddingModel: z.string().min(1),
+  embeddingDimension: z.number().int().min(1),
+  thinkingBudget: z.number().int().min(0)
+});
+
+export type ChatModelMetadata = z.infer<typeof chatModelMetadataSchema>;
+
+export const chatRetrievalMetadataSchema = z.object({
+  query: z.string().min(1),
+  scope: chatScopeSchema,
+  requestedAt: z.string().datetime(),
+  limit: z.number().int().min(1),
+  retrievedChunkCount: z.number().int().min(0)
+});
+
+export type ChatRetrievalMetadata = z.infer<typeof chatRetrievalMetadataSchema>;
+
 export const chatThreadSchema = z.object({
   id: z.string().uuid(),
   projectId: z.string().uuid(),
@@ -451,6 +486,9 @@ export const chatMessageSchema = z.object({
   content: z.string(),
   assistantStatus: assistantMessageStatusSchema.nullable(),
   scopeSnapshot: chatScopeSchema.nullable(),
+  retrievedChunkReferences: z.array(chatRetrievedChunkReferenceSchema).default([]),
+  modelMetadata: chatModelMetadataSchema.nullable().default(null),
+  retrievalMetadata: chatRetrievalMetadataSchema.nullable().default(null),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime()
 });
