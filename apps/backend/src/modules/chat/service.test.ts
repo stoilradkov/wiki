@@ -89,7 +89,10 @@ const searchResult = hybridSearchResultSchema.parse({
     projectId,
     title: "Release Notes",
     status: "ready",
-    sourceMetadata: {},
+    sourceMetadata: {
+      url: "https://example.com/release",
+      author: "Docs team"
+    },
     currentMarkdownVersionId: "00000000-0000-4000-8000-000000000040"
   },
   project: {
@@ -231,6 +234,11 @@ describe("chat service", () => {
           expect.objectContaining({
             chunkId: searchResult.chunk.id,
             documentTitle: "Release Notes",
+            sourceMetadata: searchResult.document.sourceMetadata,
+            markdownOffsets: searchResult.chunk.markdownOffsets,
+            markdownVersionId: searchResult.chunk.markdownVersionId,
+            chunkIndex: searchResult.chunk.chunkIndex,
+            headingPath: searchResult.chunk.headingPath,
             snippet: searchResult.chunk.content
           })
         ]

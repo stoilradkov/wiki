@@ -73,6 +73,9 @@ export function ChatMessageList({ messages }: ChatMessageListProps) {
                       documentId: reference.documentId,
                       projectId: reference.projectId
                     }}
+                    search={{
+                      citationChunkId: reference.chunkId
+                    }}
                     to="/projects/$projectId/documents/$documentId"
                   >
                     <span className="flex items-center gap-2 text-caption font-medium text-foreground">
@@ -85,6 +88,23 @@ export function ChatMessageList({ messages }: ChatMessageListProps) {
                     <span className="mt-1 block line-clamp-2 text-caption leading-relaxed">
                       {reference.snippet}
                     </span>
+                    <span className="mt-2 block font-mono text-caption text-faint">
+                      v {reference.markdownVersionId.slice(0, 8)} / chunk{" "}
+                      {reference.chunkIndex + 1}
+                      {reference.markdownOffsets
+                        ? ` / offsets ${reference.markdownOffsets.start}-${reference.markdownOffsets.end}`
+                        : " / offsets unavailable"}
+                    </span>
+                    {formatSourceMetadata(reference) ? (
+                      <span className="mt-1 block line-clamp-1 text-caption text-muted-foreground">
+                        {formatSourceMetadata(reference)}
+                      </span>
+                    ) : null}
+                    {reference.headingPath.length > 0 ? (
+                      <span className="mt-1 block line-clamp-1 text-caption text-muted-foreground">
+                        {reference.headingPath.join(" / ")}
+                      </span>
+                    ) : null}
                   </Link>
                 ))}
               </div>
@@ -123,4 +143,18 @@ function formatScope(scope: ChatMessage["scopeSnapshot"]): string {
   if (scope.scope === "current_project") return "current project";
   if (scope.scope === "all_projects") return "all projects";
   return `${scope.selectedProjectIds.length} selected`;
+}
+
+function formatSourceMetadata(
+  reference: ChatMessage["retrievedChunkReferences"][number]
+): string | null {
+  const metadata = reference.sourceMetadata;
+  const parts = [
+    metadata.title,
+    metadata.author,
+    metadata.sourceDate,
+    metadata.url
+  ].filter((part) => part && part.trim().length > 0);
+
+  return parts.length > 0 ? parts.join(" / ") : null;
 }

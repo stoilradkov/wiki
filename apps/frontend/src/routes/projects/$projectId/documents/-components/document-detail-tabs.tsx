@@ -6,15 +6,16 @@ import { DocumentMarkdownPanel } from "@wiki/frontend/routes/projects/$projectId
 import { DocumentRawPanel } from "@wiki/frontend/routes/projects/$projectId/documents/-components/document-raw-panel";
 
 interface DocumentDetailTabsProps {
+  citationChunkId?: string;
   document: DocumentDetail;
   projectId: string;
 }
 
 const tabItems = ["markdown", "raw", "summary", "entities", "chunks"] as const;
 
-export function DocumentDetailTabs({ document, projectId }: DocumentDetailTabsProps) {
+export function DocumentDetailTabs({ citationChunkId, document, projectId }: DocumentDetailTabsProps) {
   return (
-    <Tabs className="gap-3" defaultValue="markdown">
+    <Tabs className="gap-3" defaultValue={citationChunkId ? "chunks" : "markdown"}>
       <TabsList
         aria-label="Document sections"
         className="flex h-auto flex-wrap gap-1 border-[0.5px] border-border"
@@ -38,7 +39,11 @@ export function DocumentDetailTabs({ document, projectId }: DocumentDetailTabsPr
         <DocumentDerivedPlaceholder document={document} label="Entities" />
       </TabsContent>
       <TabsContent value="chunks">
-        <DocumentChunksPanel document={document} />
+        <DocumentChunksPanel
+          document={document}
+          projectId={projectId}
+          targetChunkId={citationChunkId}
+        />
       </TabsContent>
     </Tabs>
   );

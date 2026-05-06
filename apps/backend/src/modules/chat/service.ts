@@ -315,7 +315,9 @@ function mapSearchResultToReference(
     projectId: result.project.id,
     chunkIndex: result.chunk.chunkIndex,
     headingPath: result.chunk.headingPath,
+    markdownOffsets: result.chunk.markdownOffsets,
     documentTitle: result.document.title,
+    sourceMetadata: result.document.sourceMetadata,
     projectName: result.project.name,
     rank: result.rank,
     snippet: createCitationSnippet(result.chunk.content, index)
@@ -366,7 +368,10 @@ function buildSourceContext(results: HybridSearchResult[]): string {
       return [
         `[${label}] ${title}`,
         `Project: ${result.project.name}`,
+        `Markdown version: ${result.chunk.markdownVersionId}`,
+        `Chunk: ${result.chunk.chunkIndex + 1}`,
         `Heading: ${heading}`,
+        `Offsets: ${result.chunk.markdownOffsets.start}-${result.chunk.markdownOffsets.end}`,
         `Content:`,
         result.chunk.content
       ].join("\n");

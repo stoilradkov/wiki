@@ -440,7 +440,9 @@ export const chatRetrievedChunkReferenceSchema = z.object({
   projectId: z.string().uuid(),
   chunkIndex: z.number().int().min(0),
   headingPath: z.array(z.string().min(1)),
+  markdownOffsets: markdownChunkOffsetSchema.nullable().default(null),
   documentTitle: z.string().nullable(),
+  sourceMetadata: sourceMetadataSchema.default({}),
   projectName: z.string().min(1),
   rank: z.number().nonnegative().nullable(),
   snippet: z.string().min(1)

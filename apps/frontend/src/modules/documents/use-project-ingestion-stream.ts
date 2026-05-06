@@ -40,6 +40,16 @@ export function useProjectIngestionStream(projectId: string): void {
         documentQueryKeys.detail(projectId, parsed.document.id),
         (document) => (document ? { ...document, ...parsed.document } : document)
       );
+
+      if (parsed.type === "document_ready") {
+        void queryClient.invalidateQueries({
+          queryKey: documentQueryKeys.chunks(
+            projectId,
+            parsed.document.id,
+            parsed.document.currentMarkdownVersionId
+          )
+        });
+      }
     };
 
     source.addEventListener("document_status_changed", handleDocumentEvent);

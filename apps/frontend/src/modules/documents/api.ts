@@ -4,7 +4,9 @@ import type {
   Document,
   DocumentActionResponse,
   DocumentDetail,
+  DocumentChunk,
   DuplicateDocumentResponse,
+  ListDocumentChunksResponse,
   ListDocumentsResponse,
   ListMarkdownVersionsResponse,
   MarkdownVersion,
@@ -50,6 +52,16 @@ export async function listMarkdownVersions(
     `/projects/${projectId}/documents/${documentId}/markdown/versions`
   );
   return response.data.versions;
+}
+
+export async function listDocumentChunks(
+  projectId: string,
+  documentId: string
+): Promise<DocumentChunk[]> {
+  const response = await api.get<ListDocumentChunksResponse>(
+    `/projects/${projectId}/documents/${documentId}/chunks`
+  );
+  return response.data.chunks;
 }
 
 export async function updateDocumentMetadata(

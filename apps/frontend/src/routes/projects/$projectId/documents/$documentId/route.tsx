@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
+import { z } from "zod";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@wiki/frontend/components/ui/button";
 import { SkeletonBlock, PageError } from "@wiki/frontend/components/interaction";
@@ -12,6 +13,9 @@ import { DocumentPipelineStatusPanel } from "@wiki/frontend/routes/projects/$pro
 import { PipelineStageBar } from "@wiki/frontend/routes/projects/$projectId/documents/-components/pipeline-stage-bar";
 
 export const Route = createFileRoute("/projects/$projectId/documents/$documentId")({
+  validateSearch: z.object({
+    citationChunkId: z.string().uuid().optional()
+  }),
   component: DocumentDetailView
 });
 
@@ -19,6 +23,7 @@ function DocumentDetailView() {
   const { projectId, documentId } = useParams({
     from: "/projects/$projectId/documents/$documentId"
   });
+  const { citationChunkId } = Route.useSearch();
   const documentQuery = useQuery({
     queryKey: documentQueryKeys.detail(projectId, documentId),
     queryFn: () => getDocument(projectId, documentId)
@@ -93,7 +98,11 @@ function DocumentDetailView() {
       </div>
       {document.pipelineStage ? <PipelineStageBar stage={document.pipelineStage} /> : null}
       <DocumentPipelineStatusPanel document={document} projectId={projectId} />
-      <DocumentDetailTabs document={document} projectId={projectId} />
+      <DocumentDetailTabs
+        citationChunkId={citationChunkId}
+        document={document}
+        projectId={projectId}
+      />
     </section>
   );
 }
