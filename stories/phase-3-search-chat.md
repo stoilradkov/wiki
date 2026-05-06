@@ -55,7 +55,7 @@ This phase implements semantic chunking, Gemini embeddings, full-text indexing, 
 - Deleted documents and archived projects are excluded by default.
 - Full-text search can return results independently of vector search.
 
-### Story 7.4 - Run Hybrid Search
+### Story 7.4 - Run Hybrid Search [completed]
 
 **Description:** As a user, I want search to combine semantic meaning and exact matching so that results are both smart and precise.
 

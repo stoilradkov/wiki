@@ -38,9 +38,15 @@ importers:
 
   apps/backend:
     dependencies:
+      '@ai-sdk/google':
+        specifier: ^3.0.67
+        version: 3.0.67(zod@3.25.76)
       '@wiki/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      ai:
+        specifier: ^6.0.174
+        version: 6.0.174(zod@3.25.76)
       bullmq:
         specifier: ^5.58.7
         version: 5.76.5

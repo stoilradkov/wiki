@@ -392,6 +392,25 @@ export const fullTextSearchResponseSchema = z.object({
 
 export type FullTextSearchResponse = z.infer<typeof fullTextSearchResponseSchema>;
 
+export const hybridSearchRequestSchema = fullTextSearchRequestSchema;
+
+export type HybridSearchRequest = z.infer<typeof hybridSearchRequestSchema>;
+
+export const hybridSearchResultSchema = fullTextSearchResultSchema.extend({
+  matchRanks: z.object({
+    fullText: z.number().int().min(1).nullable(),
+    semantic: z.number().int().min(1).nullable()
+  })
+});
+
+export type HybridSearchResult = z.infer<typeof hybridSearchResultSchema>;
+
+export const hybridSearchResponseSchema = z.object({
+  results: z.array(hybridSearchResultSchema)
+});
+
+export type HybridSearchResponse = z.infer<typeof hybridSearchResponseSchema>;
+
 export const ingestionJobDataSchema = z.object({
   documentId: z.string().uuid(),
   projectId: z.string().uuid(),

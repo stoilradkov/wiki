@@ -61,7 +61,7 @@ The core user experience is a project workspace. Users create projects, paste do
 - Database: PostgreSQL 16 with pgvector.
 - AI provider: Gemini.
 - Generation model default: gemini-3.1-flash-lite-preview for markdownification, structured extraction, and chat.
-- Embedding model default: gemini-embedding-002 with 768 output dimensions.
+- Embedding model default: gemini-embedding-2 with 768 output dimensions.
 - Runtime: latest Node image line for Docker, hot reload in dev, compiled JavaScript in production.
 
 ## Shared Decisions

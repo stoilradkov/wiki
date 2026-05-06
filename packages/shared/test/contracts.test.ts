@@ -51,7 +51,7 @@ describe("shared bootstrap contracts", () => {
       GEMINI_API_KEY: undefined,
       AI_PROVIDER: "gemini",
       AI_GENERATION_MODEL: "gemini-3.1-flash-lite-preview",
-      AI_EMBEDDING_MODEL: "gemini-embedding-002",
+      AI_EMBEDDING_MODEL: "gemini-embedding-2",
       AI_EMBEDDING_DIMENSION: 768,
       AI_THINKING_BUDGET_MARKDOWNIFY: 256,
       AI_THINKING_BUDGET_EXTRACTION: 256,
@@ -98,7 +98,7 @@ describe("shared bootstrap contracts", () => {
     expect(settings).toEqual({
       provider: "gemini",
       generationModel: "gemini-3.1-flash-lite-preview",
-      embeddingModel: "gemini-embedding-002",
+      embeddingModel: "gemini-embedding-2",
       embeddingDimension: 768,
       thinkingBudgets: {
         markdownify: 256,

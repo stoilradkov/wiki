@@ -18,7 +18,7 @@ export const backendEnvSchema = z.object({
   GEMINI_API_KEY: optionalSecretSchema,
   AI_PROVIDER: z.literal("gemini").default("gemini"),
   AI_GENERATION_MODEL: z.string().min(1).default("gemini-3.1-flash-lite-preview"),
-  AI_EMBEDDING_MODEL: z.string().min(1).default("gemini-embedding-002"),
+  AI_EMBEDDING_MODEL: z.string().min(1).default("gemini-embedding-2"),
   AI_EMBEDDING_DIMENSION: positiveIntSchema.default(768),
   AI_THINKING_BUDGET_MARKDOWNIFY: nonNegativeIntSchema.default(256),
   AI_THINKING_BUDGET_EXTRACTION: nonNegativeIntSchema.default(256),

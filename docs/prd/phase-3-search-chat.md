@@ -32,7 +32,7 @@ Phase 3 implements semantic chunking, Gemini embeddings, full-text indexing, hyb
 ## Embeddings
 
 - Embeddings use Gemini embedding model defaults.
-- Default embedding model is gemini-embedding-002.
+- Default embedding model is gemini-embedding-2.
 - Default embedding dimension is 768.
 - Embeddings are generated in configurable batches.
 - Embedding retries can fall back to smaller batches.
