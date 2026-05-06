@@ -72,7 +72,7 @@ This phase implements semantic chunking, Gemini embeddings, full-text indexing, 
 - The UI groups chunk results by document.
 - Search defaults to the current project.
 
-### Story 7.5 - Filter Search Results
+### Story 7.5 - Filter Search Results [completed]
 
 **Description:** As a user, I want filters for search so that I can narrow results by context.
 

@@ -299,7 +299,7 @@ function mapVectorSearchRow(row: VectorSearchRow): FullTextSearchResponse["resul
   };
 }
 
-function createSearchFilters(input: FullTextSearchRequest, query?: string): SQL[] {
+export function createSearchFilters(input: FullTextSearchRequest, query?: string): SQL[] {
   const filters: SQL[] = [
     eq(documentChunks.markdownVersionId, documents.currentMarkdownVersionId)
   ];
@@ -325,6 +325,18 @@ function createSearchFilters(input: FullTextSearchRequest, query?: string): SQL[
 
   if (!input.includeDeletedDocuments) {
     filters.push(ne(documents.status, "deleted"));
+  }
+
+  if (input.documentStatuses.length > 0) {
+    filters.push(inArray(documents.status, input.documentStatuses));
+  }
+
+  if (input.sourceDateFrom) {
+    filters.push(sql`${documents.sourceMetadata}->>'sourceDate' >= ${input.sourceDateFrom}`);
+  }
+
+  if (input.sourceDateTo) {
+    filters.push(sql`${documents.sourceMetadata}->>'sourceDate' <= ${input.sourceDateTo}`);
   }
 
   if (input.tags.length > 0) {

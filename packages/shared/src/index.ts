@@ -349,11 +349,20 @@ export const listDocumentChunksResponseSchema = z.object({
 
 export type ListDocumentChunksResponse = z.infer<typeof listDocumentChunksResponseSchema>;
 
+export const searchScopeSchema = z.enum(["current_project", "selected_projects", "all_projects"]);
+
+export type SearchScope = z.infer<typeof searchScopeSchema>;
+
 export const fullTextSearchRequestSchema = z.object({
   query: z.string().trim().min(1).max(500),
+  scope: searchScopeSchema.optional().default("current_project"),
   projectIds: z.array(z.string().uuid()).optional(),
+  selectedProjectIds: z.array(z.string().uuid()).optional().default([]),
   includeArchivedProjects: z.boolean().optional().default(false),
   includeDeletedDocuments: z.boolean().optional().default(false),
+  documentStatuses: z.array(documentStatusSchema).optional().default([]),
+  sourceDateFrom: z.string().date().optional(),
+  sourceDateTo: z.string().date().optional(),
   tags: z.array(z.string().trim().min(1).max(120)).optional().default([]),
   entityNames: z.array(z.string().trim().min(1).max(240)).optional().default([]),
   entityTypes: z.array(entityTypeSchema).optional().default([]),

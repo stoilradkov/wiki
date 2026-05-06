@@ -84,4 +84,69 @@ describe("search routes", () => {
 
     await server.close();
   });
+
+  it("allows selected project scope for hybrid search", async () => {
+    const pathProjectId = "00000000-0000-4000-8000-00000000000a";
+    const selectedProjectId = "00000000-0000-4000-8000-00000000000b";
+    const server = Fastify();
+    mocks.getProject.mockResolvedValue({ id: pathProjectId });
+    mocks.searchHybrid.mockResolvedValue({ results: [] });
+
+    await registerSearchRoutes(server);
+
+    const response = await server.inject({
+      method: "POST",
+      url: `/api/projects/${pathProjectId}/search`,
+      payload: {
+        query: "semantic exact",
+        scope: "selected_projects",
+        selectedProjectIds: [selectedProjectId],
+        documentStatuses: ["ready"],
+        sourceDateFrom: "2026-01-01",
+        sourceDateTo: "2026-12-31",
+        limit: 10
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(mocks.searchHybrid).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectIds: [selectedProjectId],
+        documentStatuses: ["ready"],
+        sourceDateFrom: "2026-01-01",
+        sourceDateTo: "2026-12-31",
+        limit: 10
+      })
+    );
+
+    await server.close();
+  });
+
+  it("allows all project scope for full-text search", async () => {
+    const pathProjectId = "00000000-0000-4000-8000-00000000000a";
+    const server = Fastify();
+    mocks.getProject.mockResolvedValue({ id: pathProjectId });
+    mocks.searchFullText.mockResolvedValue({ results: [] });
+
+    await registerSearchRoutes(server);
+
+    const response = await server.inject({
+      method: "POST",
+      url: `/api/projects/${pathProjectId}/search/full-text`,
+      payload: {
+        query: "exact acronym",
+        scope: "all_projects"
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(mocks.searchFullText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectIds: undefined,
+        query: "exact acronym"
+      })
+    );
+
+    await server.close();
+  });
 });

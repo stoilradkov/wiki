@@ -1,13 +1,13 @@
 import { api } from "@wiki/frontend/lib/api";
-import type { HybridSearchResponse } from "@wiki/shared";
+import type { HybridSearchRequest, HybridSearchResponse } from "@wiki/shared";
+
+export type SearchProjectRequest = Omit<HybridSearchRequest, "projectIds">;
 
 export async function searchProject(
   projectId: string,
-  query: string
+  input: SearchProjectRequest
 ): Promise<HybridSearchResponse> {
-  const response = await api.post<HybridSearchResponse>(`/projects/${projectId}/search`, {
-    query
-  });
+  const response = await api.post<HybridSearchResponse>(`/projects/${projectId}/search`, input);
 
   return response.data;
 }

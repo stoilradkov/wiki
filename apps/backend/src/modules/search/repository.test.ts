@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  createSearchFilters,
   mergeSearchResultsWithRrf,
   sanitizeSearchHighlight,
   searchFullText
@@ -21,6 +22,20 @@ describe("search result highlights", () => {
     await expect(
       searchFullText(fullTextSearchRequestSchema.parse({ query: "anything", projectIds: [] }))
     ).resolves.toEqual({ results: [] });
+  });
+
+  it("adds repository filters for document status and source date range", () => {
+    const baseFilters = createSearchFilters(
+      fullTextSearchRequestSchema.parse({ query: "anything" })
+    );
+    const filteredSearch = fullTextSearchRequestSchema.parse({
+      query: "anything",
+      documentStatuses: ["ready"],
+      sourceDateFrom: "2026-01-01",
+      sourceDateTo: "2026-12-31"
+    });
+
+    expect(createSearchFilters(filteredSearch)).toHaveLength(baseFilters.length + 3);
   });
 
   it("merges semantic and full-text rankings with reciprocal rank fusion", () => {
