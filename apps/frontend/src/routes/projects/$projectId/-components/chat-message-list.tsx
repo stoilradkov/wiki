@@ -44,9 +44,19 @@ export function ChatMessageList({ messages }: ChatMessageListProps) {
             }`}
           >
             {message.content ? (
-              <p className="whitespace-pre-wrap text-ui leading-6">{message.content}</p>
+              <p className="whitespace-pre-wrap text-ui leading-6">
+                {message.content}
+                {message.assistantStatus === "streaming" ? (
+                  <span className="ml-1 inline-block h-4 w-1 animate-pulse bg-accent align-middle" />
+                ) : null}
+              </p>
             ) : (
-              <p className="text-ui text-muted-foreground">Waiting for answer stream</p>
+              <p className="text-ui text-muted-foreground">
+                Waiting for answer stream
+                {message.assistantStatus === "pending" || message.assistantStatus === "streaming" ? (
+                  <span className="ml-1 inline-block h-4 w-1 animate-pulse bg-accent align-middle" />
+                ) : null}
+              </p>
             )}
             {message.role === "assistant" && message.assistantStatus ? (
               <p className="mt-2 font-mono text-caption uppercase tracking-normal text-faint">

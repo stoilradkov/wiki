@@ -1,11 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createChatSearchRequest,
-  createGroundedChatMessage
+  createGroundedChatMessage,
+  createPendingGroundedChatMessage,
+  streamGroundedChatMessage
 } from "@wiki/backend/modules/chat/service";
 import { chatThreadDetailSchema, hybridSearchResultSchema } from "@wiki/shared";
 
 const mocks = vi.hoisted(() => ({
+  claimPendingAssistantMessageStream: vi.fn(),
   completeAssistantMessage: vi.fn(),
   createPendingChatExchange: vi.fn(),
   failAssistantMessage: vi.fn(),
@@ -13,6 +16,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@wiki/backend/modules/chat/repository", () => ({
+  claimPendingAssistantMessageStream: mocks.claimPendingAssistantMessageStream,
   completeAssistantMessage: mocks.completeAssistantMessage,
   createPendingChatExchange: mocks.createPendingChatExchange,
   failAssistantMessage: mocks.failAssistantMessage,
@@ -106,6 +110,7 @@ const searchResult = hybridSearchResultSchema.parse({
 
 describe("chat service", () => {
   beforeEach(() => {
+    mocks.claimPendingAssistantMessageStream.mockReset();
     mocks.completeAssistantMessage.mockReset();
     mocks.createPendingChatExchange.mockReset();
     mocks.failAssistantMessage.mockReset();
@@ -127,6 +132,61 @@ describe("chat service", () => {
       includeDeletedDocuments: false,
       documentStatuses: ["ready"],
       limit: 8
+    });
+  });
+
+  it("creates a pending exchange and returns assistant message id as stream id", async () => {
+    const pendingThread = chatThreadDetailSchema.parse({
+      ...baseThread,
+      messages: [
+        {
+          id: userMessageId,
+          threadId,
+          role: "user",
+          content: "What changed?",
+          assistantStatus: null,
+          scopeSnapshot: {
+            scope: "current_project",
+            selectedProjectIds: []
+          },
+          retrievedChunkReferences: [],
+          modelMetadata: null,
+          retrievalMetadata: null,
+          createdAt: "2026-05-06T10:01:00.000Z",
+          updatedAt: "2026-05-06T10:01:00.000Z"
+        },
+        {
+          id: assistantMessageId,
+          threadId,
+          role: "assistant",
+          content: "",
+          assistantStatus: "pending",
+          scopeSnapshot: {
+            scope: "current_project",
+            selectedProjectIds: []
+          },
+          retrievedChunkReferences: [],
+          modelMetadata: null,
+          retrievalMetadata: null,
+          createdAt: "2026-05-06T10:01:00.000Z",
+          updatedAt: "2026-05-06T10:01:00.000Z"
+        }
+      ]
+    });
+    mocks.getChatThread.mockResolvedValueOnce(baseThread).mockResolvedValueOnce(pendingThread);
+    mocks.createPendingChatExchange.mockResolvedValue({
+      assistantMessageId,
+      scopeSnapshot: {
+        scope: "current_project",
+        selectedProjectIds: []
+      }
+    });
+
+    await expect(
+      createPendingGroundedChatMessage(projectId, threadId, { content: "What changed?" })
+    ).resolves.toEqual({
+      thread: pendingThread,
+      streamId: assistantMessageId
     });
   });
 
@@ -231,6 +291,115 @@ describe("chat service", () => {
       )
     ).rejects.toThrow(persistenceError);
 
+    expect(mocks.failAssistantMessage).not.toHaveBeenCalled();
+  });
+
+  it("streams answer deltas and persists final buffered assistant content", async () => {
+    const streamedThread = chatThreadDetailSchema.parse({
+      ...completedThread,
+      messages: [
+        ...completedThread.messages,
+        {
+          id: assistantMessageId,
+          threadId,
+          role: "assistant",
+          content: "",
+          assistantStatus: "pending",
+          scopeSnapshot: {
+            scope: "current_project",
+            selectedProjectIds: []
+          },
+          retrievedChunkReferences: [],
+          modelMetadata: null,
+          retrievalMetadata: null,
+          createdAt: "2026-05-06T10:01:01.000Z",
+          updatedAt: "2026-05-06T10:01:01.000Z"
+        }
+      ]
+    });
+    const streamAnswer = vi.fn().mockReturnValue(
+      (async function* () {
+        yield "Chat ";
+        yield "streams [C1].";
+      })()
+    );
+    const search = vi.fn().mockResolvedValue({ results: [searchResult] });
+    const completedMessage = {
+      ...streamedThread.messages[1],
+      content: "Chat streams [C1].",
+      assistantStatus: "completed"
+    };
+    const token = vi.fn();
+    const completed = vi.fn();
+    const error = vi.fn();
+    mocks.getChatThread.mockResolvedValueOnce(streamedThread);
+    mocks.claimPendingAssistantMessageStream.mockResolvedValue(streamedThread.messages[1]);
+    mocks.completeAssistantMessage.mockResolvedValue(completedMessage);
+
+    await expect(
+      streamGroundedChatMessage(projectId, threadId, assistantMessageId, { token, completed, error }, {
+        streamAnswer,
+        search
+      })
+    ).resolves.toBe(true);
+
+    expect(mocks.claimPendingAssistantMessageStream).toHaveBeenCalledWith(assistantMessageId);
+    expect(token).toHaveBeenNthCalledWith(1, "Chat ");
+    expect(token).toHaveBeenNthCalledWith(2, "streams [C1].");
+    expect(mocks.completeAssistantMessage).toHaveBeenCalledWith(
+      assistantMessageId,
+      expect.objectContaining({
+        content: "Chat streams [C1]."
+      })
+    );
+    expect(completed).toHaveBeenCalledWith(completedMessage);
+    expect(error).not.toHaveBeenCalled();
+  });
+
+  it("refuses non-pending assistant streams before retrieval or model calls", async () => {
+    const streamedThread = chatThreadDetailSchema.parse({
+      ...completedThread,
+      messages: [
+        ...completedThread.messages,
+        {
+          id: assistantMessageId,
+          threadId,
+          role: "assistant",
+          content: "Already done.",
+          assistantStatus: "completed",
+          scopeSnapshot: {
+            scope: "current_project",
+            selectedProjectIds: []
+          },
+          retrievedChunkReferences: [],
+          modelMetadata: null,
+          retrievalMetadata: null,
+          createdAt: "2026-05-06T10:01:01.000Z",
+          updatedAt: "2026-05-06T10:01:01.000Z"
+        }
+      ]
+    });
+    const streamAnswer = vi.fn();
+    const search = vi.fn();
+    mocks.getChatThread.mockResolvedValueOnce(streamedThread);
+    mocks.claimPendingAssistantMessageStream.mockResolvedValue(null);
+
+    await expect(
+      streamGroundedChatMessage(
+        projectId,
+        threadId,
+        assistantMessageId,
+        { token: vi.fn(), completed: vi.fn(), error: vi.fn() },
+        {
+          streamAnswer,
+          search
+        }
+      )
+    ).resolves.toBe(false);
+
+    expect(search).not.toHaveBeenCalled();
+    expect(streamAnswer).not.toHaveBeenCalled();
+    expect(mocks.completeAssistantMessage).not.toHaveBeenCalled();
     expect(mocks.failAssistantMessage).not.toHaveBeenCalled();
   });
 });

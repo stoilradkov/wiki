@@ -197,6 +197,27 @@ export async function completeAssistantMessage(
   });
 }
 
+export async function claimPendingAssistantMessageStream(
+  messageId: string
+): Promise<ChatMessage | null> {
+  const [updated] = await db
+    .update(chatMessages)
+    .set({
+      assistantStatus: "streaming",
+      updatedAt: new Date()
+    })
+    .where(
+      and(
+        eq(chatMessages.id, messageId),
+        eq(chatMessages.role, "assistant"),
+        eq(chatMessages.assistantStatus, "pending")
+      )
+    )
+    .returning();
+
+  return updated ? mapChatMessage(updated) : null;
+}
+
 export async function failAssistantMessage(
   messageId: string,
   input: {

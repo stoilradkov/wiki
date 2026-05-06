@@ -529,7 +529,8 @@ export const createChatMessageRequestSchema = z.object({
 export type CreateChatMessageRequest = z.infer<typeof createChatMessageRequestSchema>;
 
 export const createChatMessageResponseSchema = z.object({
-  thread: chatThreadDetailSchema
+  thread: chatThreadDetailSchema,
+  streamId: z.string().uuid()
 });
 
 export type CreateChatMessageResponse = z.infer<typeof createChatMessageResponseSchema>;
@@ -545,6 +546,51 @@ export const chatThreadParamsSchema = chatProjectParamsSchema.extend({
 });
 
 export type ChatThreadParams = z.infer<typeof chatThreadParamsSchema>;
+
+export const chatStreamParamsSchema = chatThreadParamsSchema.extend({
+  streamId: z.string().uuid()
+});
+
+export type ChatStreamParams = z.infer<typeof chatStreamParamsSchema>;
+
+export const chatTokenEventSchema = z.object({
+  type: z.literal("chat_token"),
+  projectId: z.string().uuid(),
+  threadId: z.string().uuid(),
+  messageId: z.string().uuid(),
+  delta: z.string(),
+  occurredAt: z.string().datetime()
+});
+
+export type ChatTokenEvent = z.infer<typeof chatTokenEventSchema>;
+
+export const chatCompletedEventSchema = z.object({
+  type: z.literal("chat_completed"),
+  projectId: z.string().uuid(),
+  threadId: z.string().uuid(),
+  message: chatMessageSchema,
+  occurredAt: z.string().datetime()
+});
+
+export type ChatCompletedEvent = z.infer<typeof chatCompletedEventSchema>;
+
+export const chatErrorEventSchema = z.object({
+  type: z.literal("chat_error"),
+  projectId: z.string().uuid(),
+  threadId: z.string().uuid(),
+  message: chatMessageSchema.nullable(),
+  occurredAt: z.string().datetime()
+});
+
+export type ChatErrorEvent = z.infer<typeof chatErrorEventSchema>;
+
+export const chatStreamEventSchema = z.union([
+  chatTokenEventSchema,
+  chatCompletedEventSchema,
+  chatErrorEventSchema
+]);
+
+export type ChatStreamEvent = z.infer<typeof chatStreamEventSchema>;
 
 export const ingestionJobDataSchema = z.object({
   documentId: z.string().uuid(),

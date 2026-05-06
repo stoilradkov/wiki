@@ -8,13 +8,17 @@ import {
   listChatThreads
 } from "@wiki/frontend/modules/chat/api";
 import { chatQueryKeys } from "@wiki/frontend/modules/chat/query-keys";
+import {
+  useChatMessageStream,
+  type ActiveChatStream
+} from "@wiki/frontend/modules/chat/use-chat-message-stream";
 import { ChatComposer } from "@wiki/frontend/routes/projects/$projectId/-components/chat-composer";
 import { ChatMessageList } from "@wiki/frontend/routes/projects/$projectId/-components/chat-message-list";
 import { ChatScopeControl } from "@wiki/frontend/routes/projects/$projectId/-components/chat-scope-control";
 import { ChatThreadList } from "@wiki/frontend/routes/projects/$projectId/-components/chat-thread-list";
 import type { ChatScope, ChatThreadDetail, CreateChatMessageRequest } from "@wiki/shared";
 import { MessageSquare } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 export const Route = createFileRoute("/projects/$projectId/chat")({
   component: ChatView
@@ -28,6 +32,7 @@ function ChatView() {
     scope: "current_project",
     selectedProjectIds: []
   });
+  const [activeStream, setActiveStream] = useState<ActiveChatStream | null>(null);
   const [composerResetVersion, setComposerResetVersion] = useState(0);
   const threadsQuery = useQuery({
     queryKey: chatQueryKeys.threads(projectId),
@@ -76,9 +81,19 @@ function ChatView() {
         chatQueryKeys.thread(projectId, response.thread.id),
         response.thread
       );
+      setActiveStream({
+        threadId: response.thread.id,
+        streamId: response.streamId
+      });
       void queryClient.invalidateQueries({ queryKey: chatQueryKeys.threads(projectId) });
     }
   });
+  const handleStreamTerminal = useCallback(() => {
+    setActiveStream(null);
+    void queryClient.invalidateQueries({ queryKey: chatQueryKeys.threads(projectId) });
+  }, [projectId, queryClient]);
+
+  useChatMessageStream(projectId, activeStream, handleStreamTerminal);
 
   useEffect(() => {
     const firstThread = threadsQuery.data?.[0];
@@ -192,7 +207,7 @@ function ChatView() {
             errorMessage={
               createMessageMutation.isError ? "Could not send message. Try again." : null
             }
-            isSending={createMessageMutation.isPending}
+            isSending={createMessageMutation.isPending || activeStream !== null}
             onSubmit={handleSubmitMessage}
             resetVersion={composerResetVersion}
           />
