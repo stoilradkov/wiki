@@ -6,6 +6,7 @@ import {
 } from "@wiki/backend/modules/ingestion/events";
 import { closeDocumentIngestionQueue } from "@wiki/backend/modules/ingestion/queue";
 import { registerProjectRoutes } from "@wiki/backend/modules/projects/routes";
+import { registerSearchRoutes } from "@wiki/backend/modules/search/routes";
 import { registerSettingsRoutes } from "@wiki/backend/modules/settings/routes";
 import { sendValidationError } from "@wiki/backend/routes/helpers";
 import { createAppInfo, domainEnums, domainEnumsSchema, healthResponseSchema } from "@wiki/shared";
@@ -49,6 +50,7 @@ server.addHook("onClose", async () => {
 await registerProjectRoutes(server);
 await registerDocumentRoutes(server);
 await registerIngestionEventRoutes(server);
+await registerSearchRoutes(server);
 await registerSettingsRoutes(server);
 
 const port = env.PORT;

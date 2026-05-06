@@ -39,7 +39,7 @@ This phase implements semantic chunking, Gemini embeddings, full-text indexing, 
 - Failed large batches can retry as smaller batches.
 - Each chunk stores embedding model, dimension, task type, and embedded timestamp.
 
-### Story 7.3 - Build Full-Text Search Indexes
+### Story 7.3 - Build Full-Text Search Indexes [completed]
 
 **Description:** As a user, I want exact terms, names, numbers, and acronyms to be searchable so that semantic search does not miss precise matches.
 

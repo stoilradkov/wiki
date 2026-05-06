@@ -19,6 +19,7 @@ import {
 } from "@wiki/shared";
 import {
   boolean,
+  customType,
   index,
   integer,
   jsonb,
@@ -29,6 +30,13 @@ import {
   uuid,
   vector
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+
+const tsvector = customType<{ data: string }>({
+  dataType() {
+    return "tsvector";
+  }
+});
 
 export const projects = pgTable("projects", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -82,10 +90,24 @@ export const documents = pgTable(
       .default("auto"),
     currentMarkdownVersionId: uuid("current_markdown_version_id"),
     sourceMetadata: jsonb("source_metadata").$type<SourceMetadata>().notNull().default({}),
+    searchVector: tsvector("search_vector").generatedAlwaysAs(
+      sql`setweight(to_tsvector('simple', coalesce("title", '')), 'A') ||
+          setweight(to_tsvector('simple', coalesce("source_metadata"->>'title', '')), 'A') ||
+          setweight(to_tsvector('simple', coalesce("source_metadata"->>'author', '')), 'B') ||
+          setweight(to_tsvector('simple', coalesce(("source_metadata"->'tags')::text, '')), 'B') ||
+          setweight(to_tsvector('simple', coalesce(("source_metadata"->'entityNames')::text, '')), 'B') ||
+          setweight(to_tsvector('simple', coalesce(("source_metadata"->'entityTypes')::text, '')), 'C') ||
+          setweight(to_tsvector('simple', coalesce("source_metadata"->>'url', '')), 'C') ||
+          setweight(to_tsvector('simple', coalesce("source_metadata"->>'sourceDate', '')), 'C') ||
+          setweight(to_tsvector('simple', coalesce("source_metadata"->>'note', '')), 'C')`
+    ),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
   },
-  (table) => [index("documents_project_id_idx").on(table.projectId)]
+  (table) => [
+    index("documents_project_id_idx").on(table.projectId),
+    index("documents_search_vector_idx").using("gin", table.searchVector)
+  ]
 );
 
 export const ingestionJobs = pgTable(
@@ -159,6 +181,10 @@ export const documentChunks = pgTable(
     chunkIndex: integer("chunk_index").notNull(),
     headingPath: jsonb("heading_path").$type<string[]>().notNull().default([]),
     content: text("content").notNull(),
+    searchVector: tsvector("search_vector").generatedAlwaysAs(
+      sql`setweight(to_tsvector('simple', coalesce("content", '')), 'A') ||
+          setweight(to_tsvector('simple', coalesce("heading_path"::text, '')), 'B')`
+    ),
     contentHash: text("content_hash").notNull(),
     tokenCount: integer("token_count").notNull(),
     startOffset: integer("start_offset").notNull(),
@@ -175,6 +201,7 @@ export const documentChunks = pgTable(
   (table) => [
     index("document_chunks_document_id_idx").on(table.documentId),
     index("document_chunks_markdown_version_id_idx").on(table.markdownVersionId),
+    index("document_chunks_search_vector_idx").using("gin", table.searchVector),
     uniqueIndex("document_chunks_markdown_version_index_idx").on(
       table.markdownVersionId,
       table.chunkIndex

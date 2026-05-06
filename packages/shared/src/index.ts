@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { BackendEnv, WorkerEnv } from "@wiki/shared/env";
 import {
   documentStatusSchema,
+  entityTypeSchema,
   eventTypeSchema,
   extractionProfileSchema,
   ingestionModeSchema,
@@ -104,7 +105,10 @@ export const sourceMetadataSchema = z.object({
   title: z.string().min(1).optional(),
   author: z.string().min(1).optional(),
   sourceDate: z.string().min(1).optional(),
-  note: z.string().min(1).optional()
+  note: z.string().min(1).optional(),
+  tags: z.array(z.string().trim().min(1).max(120)).optional(),
+  entityNames: z.array(z.string().trim().min(1).max(240)).optional(),
+  entityTypes: z.array(entityTypeSchema).optional()
 });
 
 export type SourceMetadata = z.infer<typeof sourceMetadataSchema>;
@@ -344,6 +348,49 @@ export const listDocumentChunksResponseSchema = z.object({
 });
 
 export type ListDocumentChunksResponse = z.infer<typeof listDocumentChunksResponseSchema>;
+
+export const fullTextSearchRequestSchema = z.object({
+  query: z.string().trim().min(1).max(500),
+  projectIds: z.array(z.string().uuid()).optional(),
+  includeArchivedProjects: z.boolean().optional().default(false),
+  includeDeletedDocuments: z.boolean().optional().default(false),
+  tags: z.array(z.string().trim().min(1).max(120)).optional().default([]),
+  entityNames: z.array(z.string().trim().min(1).max(240)).optional().default([]),
+  entityTypes: z.array(entityTypeSchema).optional().default([]),
+  limit: z.number().int().min(1).max(50).optional().default(20)
+});
+
+export type FullTextSearchRequest = z.infer<typeof fullTextSearchRequestSchema>;
+
+export const fullTextSearchResultSchema = z.object({
+  chunk: documentChunkSchema,
+  document: documentSchema.pick({
+    id: true,
+    projectId: true,
+    title: true,
+    status: true,
+    sourceMetadata: true,
+    currentMarkdownVersionId: true
+  }),
+  project: projectSchema.pick({
+    id: true,
+    name: true,
+    archived: true
+  }),
+  rank: z.number().nonnegative(),
+  highlights: z.object({
+    chunk: z.string(),
+    document: z.string().nullable()
+  })
+});
+
+export type FullTextSearchResult = z.infer<typeof fullTextSearchResultSchema>;
+
+export const fullTextSearchResponseSchema = z.object({
+  results: z.array(fullTextSearchResultSchema)
+});
+
+export type FullTextSearchResponse = z.infer<typeof fullTextSearchResponseSchema>;
 
 export const ingestionJobDataSchema = z.object({
   documentId: z.string().uuid(),
