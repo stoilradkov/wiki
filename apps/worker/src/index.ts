@@ -1,4 +1,5 @@
 import {
+  chunkCurrentMarkdownVersion,
   createMarkdownVersionFromMarkdownify,
   deleteDocumentDerivedDataForReprocess,
   getDocument,
@@ -30,6 +31,7 @@ async function processDocument(
   progress: (event: DocumentIngestionEvent) => Promise<void>
 ): Promise<void> {
   await processDocumentIngestion(data, progress, {
+    chunkCurrentMarkdownVersion,
     createMarkdownVersionFromMarkdownify,
     deleteDocumentDerivedDataForReprocess,
     getDocument,

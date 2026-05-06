@@ -1,14 +1,23 @@
 import { db } from "@wiki/backend/db/client";
-import { documents, ingestionEvents, ingestionJobs, markdownVersions } from "@wiki/backend/db/schema";
+import {
+  documentChunks,
+  documents,
+  ingestionEvents,
+  ingestionJobs,
+  markdownVersions
+} from "@wiki/backend/db/schema";
 import {
   documentIngestionEventSchema,
+  documentChunkSchema,
   documentDetailSchema,
   documentSchema,
   duplicateDocumentResponseSchema,
+  listDocumentChunksResponseSchema,
   listMarkdownVersionsResponseSchema,
   markdownVersionSchema,
   type CheckDuplicateDocumentRequest,
   type CreateDocumentRequest,
+  type DocumentChunk,
   type DocumentIngestionEvent,
   type DocumentStatus,
   type Document,
@@ -16,6 +25,7 @@ import {
   type DuplicateDocumentResponse,
   type EventType,
   type IngestionMode,
+  type ListDocumentChunksResponse,
   type ListMarkdownVersionsResponse,
   type MarkdownifyResult,
   type MarkdownVersion,
@@ -24,7 +34,12 @@ import {
   type UpdateDocumentMetadataRequest
 } from "@wiki/shared";
 import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
-import { hashMarkdown, hashRawContent } from "@wiki/backend/modules/documents/content-hash";
+import {
+  hashChunkContent,
+  hashMarkdown,
+  hashRawContent
+} from "@wiki/backend/modules/documents/content-hash";
+import { chunkMarkdownSemantically } from "@wiki/backend/modules/documents/semantic-chunker";
 
 const toIso = (value: Date) => value.toISOString();
 
@@ -58,6 +73,24 @@ function mapMarkdownVersion(row: typeof markdownVersions.$inferSelect): Markdown
     markdown: row.markdown,
     markdownHash: row.markdownHash,
     author: row.author,
+    createdAt: toIso(row.createdAt)
+  });
+}
+
+function mapDocumentChunk(row: typeof documentChunks.$inferSelect): DocumentChunk {
+  return documentChunkSchema.parse({
+    id: row.id,
+    documentId: row.documentId,
+    markdownVersionId: row.markdownVersionId,
+    chunkIndex: row.chunkIndex,
+    headingPath: row.headingPath,
+    content: row.content,
+    contentHash: row.contentHash,
+    tokenCount: row.tokenCount,
+    markdownOffsets: {
+      start: row.startOffset,
+      end: row.endOffset
+    },
     createdAt: toIso(row.createdAt)
   });
 }
@@ -161,6 +194,32 @@ export async function listMarkdownVersions(
     .orderBy(desc(markdownVersions.versionNumber));
 
   return listMarkdownVersionsResponseSchema.parse({ versions: rows.map(mapMarkdownVersion) });
+}
+
+export async function listDocumentChunks(
+  projectId: string,
+  documentId: string
+): Promise<ListDocumentChunksResponse> {
+  const [documentRow] = await db
+    .select({
+      id: documents.id,
+      currentMarkdownVersionId: documents.currentMarkdownVersionId
+    })
+    .from(documents)
+    .where(and(eq(documents.projectId, projectId), eq(documents.id, documentId)))
+    .limit(1);
+
+  if (!documentRow?.currentMarkdownVersionId) {
+    return listDocumentChunksResponseSchema.parse({ chunks: [] });
+  }
+
+  const rows = await db
+    .select()
+    .from(documentChunks)
+    .where(eq(documentChunks.markdownVersionId, documentRow.currentMarkdownVersionId))
+    .orderBy(documentChunks.chunkIndex);
+
+  return listDocumentChunksResponseSchema.parse({ chunks: rows.map(mapDocumentChunk) });
 }
 
 export async function findDuplicateDocument(
@@ -531,8 +590,61 @@ export async function queueFailedDocumentForRetry(
 }
 
 export async function deleteDocumentDerivedDataForReprocess(documentId: string): Promise<void> {
-  // Phase 3/4 derived tables plug in here; user-authored tags must stay untouched.
-  void documentId;
+  await db.delete(documentChunks).where(eq(documentChunks.documentId, documentId));
+}
+
+export async function chunkCurrentMarkdownVersion(documentId: string): Promise<DocumentChunk[]> {
+  const chunks = await db.transaction(async (transaction) => {
+    const [documentRow] = await transaction
+      .select({
+        currentMarkdownVersionId: documents.currentMarkdownVersionId
+      })
+      .from(documents)
+      .where(eq(documents.id, documentId))
+      .limit(1);
+
+    if (!documentRow) {
+      throw new Error("Document not found for chunking");
+    }
+
+    if (!documentRow.currentMarkdownVersionId) {
+      throw new Error("Document has no current markdown version for chunking");
+    }
+
+    const [versionRow] = await transaction
+      .select()
+      .from(markdownVersions)
+      .where(eq(markdownVersions.id, documentRow.currentMarkdownVersionId))
+      .limit(1);
+
+    if (!versionRow) {
+      throw new Error("Current markdown version not found for chunking");
+    }
+
+    await transaction.delete(documentChunks).where(eq(documentChunks.documentId, documentId));
+
+    const semanticChunks = chunkMarkdownSemantically(versionRow.markdown);
+    if (semanticChunks.length === 0) return [];
+
+    return transaction
+      .insert(documentChunks)
+      .values(
+        semanticChunks.map((chunk) => ({
+          documentId,
+          markdownVersionId: versionRow.id,
+          chunkIndex: chunk.chunkIndex,
+          headingPath: chunk.headingPath,
+          content: chunk.content,
+          contentHash: hashChunkContent(chunk.content),
+          tokenCount: chunk.tokenCount,
+          startOffset: chunk.startOffset,
+          endOffset: chunk.endOffset
+        }))
+      )
+      .returning();
+  });
+
+  return chunks.map(mapDocumentChunk);
 }
 
 export async function restoreQueuedDocumentStage(

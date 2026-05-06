@@ -6,6 +6,7 @@ import {
   documentActionResponseSchema,
   documentDetailSchema,
   duplicateDocumentResponseSchema,
+  listDocumentChunksResponseSchema,
   listMarkdownVersionsResponseSchema,
   listDocumentsResponseSchema,
   updateDocumentMarkdownRequestSchema,
@@ -15,6 +16,7 @@ import {
 import {
   findDuplicateDocument,
   getDocument,
+  listDocumentChunks,
   listMarkdownVersions,
   listDocuments,
   updateDocumentMarkdown,
@@ -101,6 +103,17 @@ export async function registerDocumentRoutes(server: FastifyInstance) {
       );
     }
   );
+
+  server.get("/api/projects/:projectId/documents/:documentId/chunks", async (request, reply) => {
+    const { projectId, documentId } = parseParams(request, documentParamsSchema);
+    const document = await getDocument(projectId, documentId);
+
+    if (!document) {
+      return reply.status(404).send({ error: "not_found", message: "Document not found" });
+    }
+
+    return listDocumentChunksResponseSchema.parse(await listDocumentChunks(projectId, documentId));
+  });
 
   server.patch("/api/projects/:projectId/documents/:documentId", async (request, reply) => {
     const { projectId, documentId } = parseParams(request, documentParamsSchema);

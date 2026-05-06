@@ -6,7 +6,7 @@ This phase implements semantic chunking, Gemini embeddings, full-text indexing, 
 
 ## Epic 7 - Chunking, Embeddings, and Search Indexing
 
-### Story 7.1 - Chunk Markdown Semantically
+### Story 7.1 - Chunk Markdown Semantically [completed]
 
 **Description:** As a user, I want documents split into meaningful chunks so that search and chat retrieve useful context.
 

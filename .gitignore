@@ -47,3 +47,11 @@ temp/
 
 .env*
 !.env.example
+
+.claude
+
+# Local Claude/proxy scratch files
+anthropic_proxy.py
+config.yaml.dev
+main_claude_code.py
+__pycache__/

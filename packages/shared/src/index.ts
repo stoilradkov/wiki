@@ -202,6 +202,28 @@ export const documentDetailSchema = documentSchema.extend({
 
 export type DocumentDetail = z.infer<typeof documentDetailSchema>;
 
+export const markdownChunkOffsetSchema = z.object({
+  start: z.number().int().min(0),
+  end: z.number().int().min(0)
+});
+
+export type MarkdownChunkOffset = z.infer<typeof markdownChunkOffsetSchema>;
+
+export const documentChunkSchema = z.object({
+  id: z.string().uuid(),
+  documentId: z.string().uuid(),
+  markdownVersionId: z.string().uuid(),
+  chunkIndex: z.number().int().min(0),
+  headingPath: z.array(z.string().min(1)),
+  content: z.string().min(1),
+  contentHash: z.string().min(1),
+  tokenCount: z.number().int().min(1),
+  markdownOffsets: markdownChunkOffsetSchema,
+  createdAt: z.string().datetime()
+});
+
+export type DocumentChunk = z.infer<typeof documentChunkSchema>;
+
 export const markdownifyResultSchema = z.object({
   title: z.string().trim().min(1).max(240),
   markdown: z.string().trim().min(1)
@@ -306,6 +328,12 @@ export const listMarkdownVersionsResponseSchema = z.object({
 });
 
 export type ListMarkdownVersionsResponse = z.infer<typeof listMarkdownVersionsResponseSchema>;
+
+export const listDocumentChunksResponseSchema = z.object({
+  chunks: z.array(documentChunkSchema)
+});
+
+export type ListDocumentChunksResponse = z.infer<typeof listDocumentChunksResponseSchema>;
 
 export const ingestionJobDataSchema = z.object({
   documentId: z.string().uuid(),

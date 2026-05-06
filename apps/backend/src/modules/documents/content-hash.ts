@@ -11,3 +11,7 @@ export function hashRawContent(rawContent: string): string {
 export function hashMarkdown(markdown: string): string {
   return hashTextContent(markdown);
 }
+
+export function hashChunkContent(content: string): string {
+  return hashTextContent(content);
+}

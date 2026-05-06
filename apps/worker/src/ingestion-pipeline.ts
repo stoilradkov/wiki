@@ -13,6 +13,7 @@ import { documentIngestionEventSchema, documentSchema } from "@wiki/shared";
 type ProgressReporter = (event: DocumentIngestionEvent) => Promise<void>;
 
 export type IngestionPipelineDependencies = {
+  chunkCurrentMarkdownVersion: (documentId: string) => Promise<unknown>;
   createMarkdownVersionFromMarkdownify: (
     documentId: string,
     result: MarkdownifyResult
@@ -113,6 +114,9 @@ async function continueAutoIngestion(
 ): Promise<void> {
   for (const step of autoStages) {
     await updateStage(documentId, step.stage, progress, step.progress, dependencies);
+    if (step.stage === "chunk") {
+      await dependencies.chunkCurrentMarkdownVersion(documentId);
+    }
   }
 
   await updateStatus(documentId, "ready", "complete", progress, dependencies);

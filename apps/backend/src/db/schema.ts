@@ -23,6 +23,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid
 } from "drizzle-orm/pg-core";
 
@@ -139,5 +140,35 @@ export const markdownVersions = pgTable(
   (table) => [
     index("markdown_versions_document_id_idx").on(table.documentId),
     index("markdown_versions_markdown_hash_idx").on(table.markdownHash)
+  ]
+);
+
+export const documentChunks = pgTable(
+  "document_chunks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    markdownVersionId: uuid("markdown_version_id")
+      .notNull()
+      .references(() => markdownVersions.id, { onDelete: "cascade" }),
+    chunkIndex: integer("chunk_index").notNull(),
+    headingPath: jsonb("heading_path").$type<string[]>().notNull().default([]),
+    content: text("content").notNull(),
+    contentHash: text("content_hash").notNull(),
+    tokenCount: integer("token_count").notNull(),
+    startOffset: integer("start_offset").notNull(),
+    endOffset: integer("end_offset").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    index("document_chunks_document_id_idx").on(table.documentId),
+    index("document_chunks_markdown_version_id_idx").on(table.markdownVersionId),
+    uniqueIndex("document_chunks_markdown_version_index_idx").on(
+      table.markdownVersionId,
+      table.chunkIndex
+    ),
+    index("document_chunks_content_hash_idx").on(table.contentHash)
   ]
 );
