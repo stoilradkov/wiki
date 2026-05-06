@@ -147,6 +147,30 @@ describe("processDocumentIngestion", () => {
     );
   });
 
+  it("throws when extraction is skipped due to markdown version change", async () => {
+    const progressEvents: DocumentIngestionEvent[] = [];
+    const stageTransitions: Array<PipelineStage> = [];
+    const dependencies = createDependencies(stageTransitions, document, false);
+
+    await expect(
+      processDocumentIngestion(
+        { ...baseJob, startStage: "chunk" },
+        async (event) => {
+          progressEvents.push(event);
+        },
+        dependencies
+      )
+    ).rejects.toThrow("Extraction skipped");
+
+    expect(stageTransitions).toEqual(["chunk", "embed"]);
+    expect(dependencies.extractAndStoreStructuredDocument).toHaveBeenCalledWith(baseJob.documentId);
+    expect(dependencies.updateDocumentProgress).not.toHaveBeenCalledWith(
+      baseJob.documentId,
+      "ready",
+      "complete"
+    );
+  });
+
   it("cleans derived data before reprocessing current markdown", async () => {
     const progressEvents: DocumentIngestionEvent[] = [];
     const stageTransitions: Array<PipelineStage> = [];
@@ -271,13 +295,15 @@ describe("processDocumentIngestion", () => {
 
 function createDependencies(
   stageTransitions: Array<PipelineStage>,
-  sourceDocument = document
+  sourceDocument = document,
+  extractionStored = true
 ): IngestionPipelineDependencies {
   return {
     chunkCurrentMarkdownVersion: vi.fn(async () => []),
     createMarkdownVersionFromMarkdownify: vi.fn(async () => sourceDocument),
     deleteDocumentDerivedDataForReprocess: vi.fn(async () => undefined),
     embedCurrentDocumentChunks: vi.fn(async () => undefined),
+    extractAndStoreStructuredDocument: vi.fn(async () => extractionStored),
     getDocument: vi.fn(async () => sourceDocument),
     markdownifyRawContent: vi.fn(async () => markdownifyResult),
     updateDocumentProgress: vi.fn(async (_documentId, status, stage) => {

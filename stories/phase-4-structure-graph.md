@@ -42,7 +42,7 @@ This phase implements structured extraction, project extraction profiles, normal
 
 ## Epic 9 - Structured Extraction, Tags, and Entities
 
-### Story 9.1 - Extract Summaries, Tags, Entities, and Triples
+### Story 9.1 - Extract Summaries, Tags, Entities, and Triples [completed]
 
 **Description:** As a user, I want the system to extract structure from documents so that my wiki becomes connected and browsable.
 

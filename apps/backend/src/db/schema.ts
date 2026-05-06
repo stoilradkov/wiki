@@ -1,13 +1,16 @@
 import {
   documentStatusValues,
   embeddingTaskTypeValues,
+  entityTypeValues,
   eventTypeValues,
   ingestionModeValues,
   pipelineStageValues,
+  predicateValues,
   assistantMessageStatusValues,
   chatMessageRoleValues,
   extractionProfileValues,
   projectIngestionModeValues,
+  tagSourceValues,
   type AssistantMessageStatus,
   type ChatMessageRole,
   type ChatModelMetadata,
@@ -22,8 +25,11 @@ import {
   type IngestionMode,
   type MarkdownVersionAuthor,
   type PipelineStage,
+  type Predicate,
   type ProjectIngestionMode,
-  type SourceMetadata
+  type SourceMetadata,
+  type EntityType,
+  type TagSource
 } from "@wiki/shared";
 import {
   boolean,
@@ -32,6 +38,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  real,
   text,
   timestamp,
   uniqueIndex,
@@ -215,6 +222,135 @@ export const documentChunks = pgTable(
       table.chunkIndex
     ),
     index("document_chunks_content_hash_idx").on(table.contentHash)
+  ]
+);
+
+export const documentSummaries = pgTable(
+  "document_summaries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    markdownVersionId: uuid("markdown_version_id")
+      .notNull()
+      .references(() => markdownVersions.id, { onDelete: "cascade" }),
+    summary: text("summary").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    uniqueIndex("document_summaries_document_id_idx").on(table.documentId),
+    index("document_summaries_markdown_version_id_idx").on(table.markdownVersionId)
+  ]
+);
+
+export const tags = pgTable(
+  "tags",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    normalizedName: text("normalized_name").notNull(),
+    displayName: text("display_name").notNull(),
+    source: text("source", { enum: tagSourceValues }).$type<TagSource>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    uniqueIndex("tags_project_normalized_source_idx").on(
+      table.projectId,
+      table.normalizedName,
+      table.source
+    ),
+    index("tags_project_id_idx").on(table.projectId)
+  ]
+);
+
+export const documentTags = pgTable(
+  "document_tags",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    markdownVersionId: uuid("markdown_version_id")
+      .notNull()
+      .references(() => markdownVersions.id, { onDelete: "cascade" }),
+    tagId: uuid("tag_id")
+      .notNull()
+      .references(() => tags.id, { onDelete: "cascade" }),
+    source: text("source", { enum: tagSourceValues }).$type<TagSource>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    uniqueIndex("document_tags_document_tag_source_idx").on(
+      table.documentId,
+      table.tagId,
+      table.source
+    ),
+    index("document_tags_document_id_idx").on(table.documentId),
+    index("document_tags_tag_id_idx").on(table.tagId)
+  ]
+);
+
+export const knowledgeEntities = pgTable(
+  "knowledge_entities",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    type: text("type", { enum: entityTypeValues }).$type<EntityType>().notNull(),
+    normalizedName: text("normalized_name").notNull(),
+    displayName: text("display_name").notNull(),
+    aliases: jsonb("aliases").$type<string[]>().notNull().default([]),
+    description: text("description"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    uniqueIndex("knowledge_entities_project_type_name_idx").on(
+      table.projectId,
+      table.type,
+      table.normalizedName
+    ),
+    index("knowledge_entities_project_id_idx").on(table.projectId)
+  ]
+);
+
+export const knowledgeTriples = pgTable(
+  "knowledge_triples",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    subjectEntityId: uuid("subject_entity_id")
+      .notNull()
+      .references(() => knowledgeEntities.id, { onDelete: "cascade" }),
+    objectEntityId: uuid("object_entity_id")
+      .notNull()
+      .references(() => knowledgeEntities.id, { onDelete: "cascade" }),
+    predicate: text("predicate", { enum: predicateValues }).$type<Predicate>().notNull(),
+    predicateText: text("predicate_text"),
+    confidence: real("confidence").notNull(),
+    sourceDocumentId: uuid("source_document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    sourceMarkdownVersionId: uuid("source_markdown_version_id")
+      .notNull()
+      .references(() => markdownVersions.id, { onDelete: "cascade" }),
+    sourceChunkId: uuid("source_chunk_id").references(() => documentChunks.id, {
+      onDelete: "set null"
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    index("knowledge_triples_project_id_idx").on(table.projectId),
+    index("knowledge_triples_source_document_id_idx").on(table.sourceDocumentId),
+    index("knowledge_triples_subject_entity_id_idx").on(table.subjectEntityId),
+    index("knowledge_triples_object_entity_id_idx").on(table.objectEntityId)
   ]
 );
 

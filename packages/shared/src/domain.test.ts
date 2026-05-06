@@ -9,12 +9,14 @@ import {
   ingestionModeValues,
   pipelineStageValues,
   projectIngestionModeValues,
-  predicateValues
+  predicateValues,
+  tagSourceValues
 } from "@wiki/shared/domain";
 import {
   createDocumentRequestSchema,
   documentDetailSchema,
   markdownifyResultSchema,
+  structuredExtractionResultSchema,
   markdownVersionSchema
 } from "@wiki/shared";
 
@@ -102,6 +104,7 @@ describe("shared domain enums", () => {
     expect(domainEnums.entityTypes).toContain("habit");
     expect(domainEnums.entityTypes).toContain("goal");
     expect(domainEnums.predicates).toContain("related_to");
+    expect(domainEnums.tagSources).toEqual(tagSourceValues);
   });
 
   it("rejects unknown enum values", () => {
@@ -156,5 +159,40 @@ describe("shared domain enums", () => {
     const rawContent = "\n  Important pasted text with original spacing.  \n";
     expect(createDocumentRequestSchema.parse({ rawContent }).rawContent).toBe(rawContent);
     expect(() => createDocumentRequestSchema.parse({ rawContent: "   " })).toThrow();
+  });
+
+  it("validates structured extraction output before storage", () => {
+    const extraction = structuredExtractionResultSchema.parse({
+      summary: "Project Alpha depends on Gemini for extraction.",
+      tags: ["project alpha", "gemini"],
+      entities: [
+        { name: "Project Alpha", type: "project" },
+        { name: "Gemini", type: "technology" }
+      ],
+      triples: [
+        {
+          subject: { name: "Project Alpha", type: "project" },
+          predicate: "depends_on",
+          object: { name: "Gemini", type: "technology" },
+          predicateText: "depends on",
+          confidence: 0.9,
+          sourceChunkIndex: 0
+        }
+      ]
+    });
+
+    expect(extraction.summary).toContain("Project Alpha");
+    expect(() =>
+      structuredExtractionResultSchema.parse({
+        summary: "Bad predicate",
+        triples: [
+          {
+            subject: { name: "A", type: "project" },
+            predicate: "likes",
+            object: { name: "B", type: "project" }
+          }
+        ]
+      })
+    ).toThrow();
   });
 });

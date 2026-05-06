@@ -1,9 +1,12 @@
 import { db } from "@wiki/backend/db/client";
 import {
   documentChunks,
+  documentSummaries,
+  documentTags,
   documents,
   ingestionEvents,
   ingestionJobs,
+  knowledgeTriples,
   markdownVersions
 } from "@wiki/backend/db/schema";
 import {
@@ -595,6 +598,11 @@ export async function queueFailedDocumentForRetry(
 }
 
 export async function deleteDocumentDerivedDataForReprocess(documentId: string): Promise<void> {
+  await db.delete(documentSummaries).where(eq(documentSummaries.documentId, documentId));
+  await db
+    .delete(documentTags)
+    .where(and(eq(documentTags.documentId, documentId), eq(documentTags.source, "ai")));
+  await db.delete(knowledgeTriples).where(eq(knowledgeTriples.sourceDocumentId, documentId));
   await db.delete(documentChunks).where(eq(documentChunks.documentId, documentId));
 }
 
@@ -845,12 +853,17 @@ export async function createMarkdownVersionFromMarkdownify(
 
 export async function updateIngestionJobStatus(
   documentId: string,
-  status: "queued" | "processing" | "completed" | "failed"
+  status: "queued" | "processing" | "completed" | "failed",
+  jobId?: string
 ): Promise<void> {
+  const where = jobId
+    ? and(eq(ingestionJobs.documentId, documentId), eq(ingestionJobs.id, jobId))
+    : eq(ingestionJobs.documentId, documentId);
+
   const [row] = await db
     .update(ingestionJobs)
     .set({ status })
-    .where(eq(ingestionJobs.documentId, documentId))
+    .where(where)
     .returning({ id: ingestionJobs.id });
 
   if (!row) {

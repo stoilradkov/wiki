@@ -94,6 +94,11 @@ export const predicateValues = [
 export const predicateSchema = z.enum(predicateValues);
 export type Predicate = z.infer<typeof predicateSchema>;
 
+export const tagSourceValues = ["ai", "user"] as const;
+
+export const tagSourceSchema = z.enum(tagSourceValues);
+export type TagSource = z.infer<typeof tagSourceSchema>;
+
 export const eventTypeValues = [
   "ingestion_snapshot",
   "document_status_changed",
@@ -130,6 +135,7 @@ export const domainEnumsSchema = z.object({
   extractionProfiles: z.array(extractionProfileSchema).readonly(),
   entityTypes: z.array(entityTypeSchema).readonly(),
   predicates: z.array(predicateSchema).readonly(),
+  tagSources: z.array(tagSourceSchema).readonly(),
   eventTypes: z.array(eventTypeSchema).readonly(),
   chatMessageRoles: z.array(chatMessageRoleSchema).readonly(),
   assistantMessageStatuses: z.array(assistantMessageStatusSchema).readonly()
@@ -145,6 +151,7 @@ export const domainEnums = domainEnumsSchema.parse({
   extractionProfiles: extractionProfileValues,
   entityTypes: entityTypeValues,
   predicates: predicateValues,
+  tagSources: tagSourceValues,
   eventTypes: eventTypeValues,
   chatMessageRoles: chatMessageRoleValues,
   assistantMessageStatuses: assistantMessageStatusValues

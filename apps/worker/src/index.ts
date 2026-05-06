@@ -9,6 +9,10 @@ import {
   updateDocumentProgress,
   updateIngestionJobStatus
 } from "@wiki/backend/modules/documents/repository";
+import {
+  getExtractionDocumentInput,
+  storeStructuredExtractionResult
+} from "@wiki/backend/modules/structure/repository";
 import { createRedisConnection } from "@wiki/backend/redis/connection";
 import {
   createAppInfo,
@@ -26,11 +30,13 @@ import { env } from "@wiki/worker/env";
 import { processDocumentIngestion } from "@wiki/worker/ingestion-pipeline";
 import { classifyIngestionError } from "@wiki/worker/ingestion-errors";
 import { embedCurrentDocumentChunks } from "@wiki/worker/embeddings";
+import { extractStructuredDocument } from "@wiki/worker/extraction";
 import { markdownifyRawContent } from "@wiki/worker/markdownify";
 import { Worker } from "bullmq";
 
 async function processDocument(
   data: IngestionJobData,
+  jobId: string,
   progress: (event: DocumentIngestionEvent) => Promise<void>
 ): Promise<void> {
   await processDocumentIngestion(data, progress, {
@@ -42,10 +48,16 @@ async function processDocument(
         listCurrentDocumentChunksForEmbedding,
         updateDocumentChunkEmbeddings
       }),
+    extractAndStoreStructuredDocument: async (documentId) => {
+      const input = await getExtractionDocumentInput(documentId);
+      const result = await extractStructuredDocument(input);
+      return storeStructuredExtractionResult(documentId, input.markdownVersionId, result);
+    },
     getDocument,
     markdownifyRawContent,
     updateDocumentProgress,
-    updateIngestionJobStatus
+    updateIngestionJobStatus: (documentId, status) =>
+      updateIngestionJobStatus(documentId, status, jobId)
   });
 }
 
@@ -107,7 +119,7 @@ const worker = new Worker<IngestionJobData>(
   ingestionQueueName,
   async (job) => {
     const data = ingestionJobDataSchema.parse(job.data);
-    await processDocument(data, (value) => job.updateProgress(value));
+    await processDocument(data, job.id ?? data.documentId, (value) => job.updateProgress(value));
   },
   {
     connection: createRedisConnection(env.REDIS_URL),

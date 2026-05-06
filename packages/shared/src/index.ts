@@ -9,6 +9,7 @@ import {
   extractionProfileSchema,
   ingestionModeSchema,
   pipelineStageSchema,
+  predicateSchema,
   projectIngestionModeSchema
 } from "@wiki/shared/domain";
 
@@ -42,6 +43,8 @@ export {
   projectIngestionModeValues,
   predicateSchema,
   predicateValues,
+  tagSourceSchema,
+  tagSourceValues,
   type DocumentStatus,
   type DomainEnums,
   type EntityType,
@@ -52,7 +55,8 @@ export {
   type IngestionMode,
   type PipelineStage,
   type ProjectIngestionMode,
-  type Predicate
+  type Predicate,
+  type TagSource
 } from "@wiki/shared/domain";
 
 export const packageName = "wiki";
@@ -250,6 +254,48 @@ export const markdownifyResultSchema = z.object({
 });
 
 export type MarkdownifyResult = z.infer<typeof markdownifyResultSchema>;
+
+export const extractedEntityRefSchema = z
+  .object({
+    name: z.string().trim().min(1).max(240),
+    type: entityTypeSchema
+  })
+  .strict();
+
+export type ExtractedEntityRef = z.infer<typeof extractedEntityRefSchema>;
+
+export const extractedEntitySchema = extractedEntityRefSchema
+  .extend({
+    aliases: z.array(z.string().trim().min(1).max(240)).optional().default([]),
+    description: z.string().trim().min(1).max(500).optional()
+  })
+  .strict();
+
+export type ExtractedEntity = z.infer<typeof extractedEntitySchema>;
+
+export const extractedTripleSchema = z
+  .object({
+    subject: extractedEntityRefSchema,
+    predicate: predicateSchema,
+    object: extractedEntityRefSchema,
+    predicateText: z.string().trim().min(1).max(240).optional().nullable(),
+    confidence: z.number().min(0).max(1).optional().default(0.75),
+    sourceChunkIndex: z.number().int().min(0).optional().nullable()
+  })
+  .strict();
+
+export type ExtractedTriple = z.infer<typeof extractedTripleSchema>;
+
+export const structuredExtractionResultSchema = z
+  .object({
+    summary: z.string().trim().min(1).max(4_000),
+    tags: z.array(z.string().trim().min(1).max(120)).max(30),
+    entities: z.array(extractedEntitySchema).max(100),
+    triples: z.array(extractedTripleSchema).max(200)
+  })
+  .strict();
+
+export type StructuredExtractionResult = z.infer<typeof structuredExtractionResultSchema>;
 
 export const createDocumentRequestSchema = z.object({
   title: z.string().trim().min(1).max(240).optional(),

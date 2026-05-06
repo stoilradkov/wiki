@@ -21,6 +21,7 @@ export type IngestionPipelineDependencies = {
   deleteDocumentDerivedDataForReprocess: (documentId: string) => Promise<void>;
   getDocument: (projectId: string, documentId: string) => Promise<DocumentDetail | null>;
   embedCurrentDocumentChunks: (documentId: string) => Promise<unknown>;
+  extractAndStoreStructuredDocument: (documentId: string) => Promise<boolean>;
   markdownifyRawContent: (rawContent: string) => Promise<MarkdownifyResult>;
   updateDocumentProgress: (
     documentId: string,
@@ -114,6 +115,13 @@ async function continueAutoIngestion(
   dependencies: IngestionPipelineDependencies
 ): Promise<void> {
   for (const step of autoStages) {
+    if (step.stage === "extract") {
+      const stored = await dependencies.extractAndStoreStructuredDocument(documentId);
+      if (!stored) {
+        throw new Error("Extraction skipped: markdown version changed, a newer job has been queued");
+      }
+    }
+
     await updateStage(documentId, step.stage, progress, step.progress, dependencies);
     if (step.stage === "chunk") {
       await dependencies.chunkCurrentMarkdownVersion(documentId);
