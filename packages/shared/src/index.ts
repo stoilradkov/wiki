@@ -4,6 +4,8 @@ import {
   documentStatusSchema,
   entityTypeSchema,
   eventTypeSchema,
+  assistantMessageStatusSchema,
+  chatMessageRoleSchema,
   extractionProfileSchema,
   ingestionModeSchema,
   pipelineStageSchema,
@@ -28,6 +30,8 @@ export {
   entityTypeValues,
   eventTypeSchema,
   eventTypeValues,
+  assistantMessageStatusValues,
+  chatMessageRoleValues,
   extractionProfileSchema,
   extractionProfileValues,
   ingestionModeSchema,
@@ -42,6 +46,8 @@ export {
   type DomainEnums,
   type EntityType,
   type EventType,
+  type AssistantMessageStatus,
+  type ChatMessageRole,
   type ExtractionProfile,
   type IngestionMode,
   type PipelineStage,
@@ -419,6 +425,88 @@ export const hybridSearchResponseSchema = z.object({
 });
 
 export type HybridSearchResponse = z.infer<typeof hybridSearchResponseSchema>;
+
+export const chatScopeSchema = z.object({
+  scope: searchScopeSchema,
+  selectedProjectIds: z.array(z.string().uuid()).default([])
+});
+
+export type ChatScope = z.infer<typeof chatScopeSchema>;
+
+export const chatThreadSchema = z.object({
+  id: z.string().uuid(),
+  projectId: z.string().uuid(),
+  title: z.string().min(1),
+  defaultScope: chatScopeSchema,
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime()
+});
+
+export type ChatThread = z.infer<typeof chatThreadSchema>;
+
+export const chatMessageSchema = z.object({
+  id: z.string().uuid(),
+  threadId: z.string().uuid(),
+  role: chatMessageRoleSchema,
+  content: z.string(),
+  assistantStatus: assistantMessageStatusSchema.nullable(),
+  scopeSnapshot: chatScopeSchema.nullable(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime()
+});
+
+export type ChatMessage = z.infer<typeof chatMessageSchema>;
+
+export const chatThreadDetailSchema = chatThreadSchema.extend({
+  messages: z.array(chatMessageSchema)
+});
+
+export type ChatThreadDetail = z.infer<typeof chatThreadDetailSchema>;
+
+export const listChatThreadsResponseSchema = z.object({
+  threads: z.array(chatThreadSchema)
+});
+
+export type ListChatThreadsResponse = z.infer<typeof listChatThreadsResponseSchema>;
+
+export const createChatThreadRequestSchema = z.object({
+  title: z.string().trim().min(1).max(160).optional(),
+  defaultScope: chatScopeSchema.optional().default({
+    scope: "current_project",
+    selectedProjectIds: []
+  })
+});
+
+export type CreateChatThreadRequest = z.infer<typeof createChatThreadRequestSchema>;
+
+export const createChatMessageRequestSchema = z.object({
+  content: z
+    .string()
+    .min(1)
+    .max(8_000)
+    .refine((value) => value.trim().length > 0, "Message is required"),
+  scopeSnapshot: chatScopeSchema.optional()
+});
+
+export type CreateChatMessageRequest = z.infer<typeof createChatMessageRequestSchema>;
+
+export const createChatMessageResponseSchema = z.object({
+  thread: chatThreadDetailSchema
+});
+
+export type CreateChatMessageResponse = z.infer<typeof createChatMessageResponseSchema>;
+
+export const chatProjectParamsSchema = z.object({
+  projectId: z.string().uuid()
+});
+
+export type ChatProjectParams = z.infer<typeof chatProjectParamsSchema>;
+
+export const chatThreadParamsSchema = chatProjectParamsSchema.extend({
+  threadId: z.string().uuid()
+});
+
+export type ChatThreadParams = z.infer<typeof chatThreadParamsSchema>;
 
 export const ingestionJobDataSchema = z.object({
   documentId: z.string().uuid(),

@@ -90,7 +90,7 @@ This phase implements semantic chunking, Gemini embeddings, full-text indexing, 
 
 ## Epic 8 - Chat, Retrieval, Streaming, and Citations
 
-### Story 8.1 - Create Persisted Chat Threads
+### Story 8.1 - Create Persisted Chat Threads [completed]
 
 **Description:** As a user, I want chat threads to persist so that I can continue investigations later.
 

@@ -1,4 +1,5 @@
 import { env } from "@wiki/backend/env";
+import { registerChatRoutes } from "@wiki/backend/modules/chat/routes";
 import { registerDocumentRoutes } from "@wiki/backend/modules/documents/routes";
 import {
   closeIngestionEventRoutes,
@@ -51,6 +52,7 @@ await registerProjectRoutes(server);
 await registerDocumentRoutes(server);
 await registerIngestionEventRoutes(server);
 await registerSearchRoutes(server);
+await registerChatRoutes(server);
 await registerSettingsRoutes(server);
 
 const port = env.PORT;

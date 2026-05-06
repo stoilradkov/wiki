@@ -4,8 +4,13 @@ import {
   eventTypeValues,
   ingestionModeValues,
   pipelineStageValues,
+  assistantMessageStatusValues,
+  chatMessageRoleValues,
   extractionProfileValues,
   projectIngestionModeValues,
+  type AssistantMessageStatus,
+  type ChatMessageRole,
+  type ChatScope,
   type DocumentStatus,
   type EmbeddingTaskType,
   type DocumentIngestionEvent,
@@ -208,4 +213,41 @@ export const documentChunks = pgTable(
     ),
     index("document_chunks_content_hash_idx").on(table.contentHash)
   ]
+);
+
+export const chatThreads = pgTable(
+  "chat_threads",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    defaultScope: jsonb("default_scope").$type<ChatScope>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    index("chat_threads_project_id_updated_at_idx").on(table.projectId, table.updatedAt),
+    index("chat_threads_project_id_created_at_idx").on(table.projectId, table.createdAt)
+  ]
+);
+
+export const chatMessages = pgTable(
+  "chat_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    threadId: uuid("thread_id")
+      .notNull()
+      .references(() => chatThreads.id, { onDelete: "cascade" }),
+    role: text("role", { enum: chatMessageRoleValues }).$type<ChatMessageRole>().notNull(),
+    content: text("content").notNull(),
+    assistantStatus: text("assistant_status", {
+      enum: assistantMessageStatusValues
+    }).$type<AssistantMessageStatus>(),
+    scopeSnapshot: jsonb("scope_snapshot").$type<ChatScope>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [index("chat_messages_thread_id_created_at_idx").on(table.threadId, table.createdAt)]
 );

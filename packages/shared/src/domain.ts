@@ -109,6 +109,19 @@ export const eventTypeValues = [
 export const eventTypeSchema = z.enum(eventTypeValues);
 export type EventType = z.infer<typeof eventTypeSchema>;
 
+export const chatMessageRoleValues = ["user", "assistant"] as const;
+export const chatMessageRoleSchema = z.enum(chatMessageRoleValues);
+export type ChatMessageRole = z.infer<typeof chatMessageRoleSchema>;
+
+export const assistantMessageStatusValues = [
+  "pending",
+  "streaming",
+  "completed",
+  "failed"
+] as const;
+export const assistantMessageStatusSchema = z.enum(assistantMessageStatusValues);
+export type AssistantMessageStatus = z.infer<typeof assistantMessageStatusSchema>;
+
 export const domainEnumsSchema = z.object({
   documentStatuses: z.array(documentStatusSchema).readonly(),
   pipelineStages: z.array(pipelineStageSchema).readonly(),
@@ -117,7 +130,9 @@ export const domainEnumsSchema = z.object({
   extractionProfiles: z.array(extractionProfileSchema).readonly(),
   entityTypes: z.array(entityTypeSchema).readonly(),
   predicates: z.array(predicateSchema).readonly(),
-  eventTypes: z.array(eventTypeSchema).readonly()
+  eventTypes: z.array(eventTypeSchema).readonly(),
+  chatMessageRoles: z.array(chatMessageRoleSchema).readonly(),
+  assistantMessageStatuses: z.array(assistantMessageStatusSchema).readonly()
 });
 
 export type DomainEnums = z.infer<typeof domainEnumsSchema>;
@@ -130,5 +145,7 @@ export const domainEnums = domainEnumsSchema.parse({
   extractionProfiles: extractionProfileValues,
   entityTypes: entityTypeValues,
   predicates: predicateValues,
-  eventTypes: eventTypeValues
+  eventTypes: eventTypeValues,
+  chatMessageRoles: chatMessageRoleValues,
+  assistantMessageStatuses: assistantMessageStatusValues
 });
