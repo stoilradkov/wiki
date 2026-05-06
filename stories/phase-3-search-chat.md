@@ -122,7 +122,7 @@ This phase implements semantic chunking, Gemini embeddings, full-text indexing, 
 - Assistant responses store model and retrieval metadata.
 - The UI can show which scope was used for an answer.
 
-### Story 8.3 - Generate Grounded Answers
+### Story 8.3 - Generate Grounded Answers [completed]
 
 **Description:** As a user, I want chat answers grounded in my knowledge base so that I can trust where claims came from.
 

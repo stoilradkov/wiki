@@ -1,18 +1,19 @@
 import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@wiki/backend/db/client";
 import { chatMessages, chatThreads } from "@wiki/backend/db/schema";
-import { env } from "@wiki/backend/env";
 import {
   chatMessageSchema,
-  chatModelMetadataSchema,
-  chatRetrievalMetadataSchema,
   chatScopeSchema,
   chatThreadDetailSchema,
   chatThreadSchema,
+  type ChatModelMetadata,
   type ChatMessage,
+  type ChatRetrievedChunkReference,
+  type ChatRetrievalMetadata,
   type ChatScope,
   type ChatThread,
   type ChatThreadDetail,
+  type AssistantMessageStatus,
   type CreateChatMessageRequest,
   type CreateChatThreadRequest
 } from "@wiki/shared";
@@ -51,6 +52,11 @@ function makeThreadTitle(content: string): string {
   if (trimmed.length === 0) return "New investigation";
   return trimmed.length > 80 ? `${trimmed.slice(0, 77)}...` : trimmed;
 }
+
+export type PendingChatExchange = {
+  assistantMessageId: string;
+  scopeSnapshot: ChatScope;
+};
 
 export async function listChatThreads(projectId: string): Promise<ChatThread[]> {
   const rows = await db
@@ -110,54 +116,36 @@ export async function getChatThread(
   });
 }
 
-export async function createChatMessage(
+export async function createPendingChatExchange(
   projectId: string,
-  threadId: string,
+  thread: ChatThreadDetail,
   input: CreateChatMessageRequest
-): Promise<ChatThreadDetail | null> {
-  const thread = await getChatThread(projectId, threadId);
-  if (!thread) return null;
-
+): Promise<PendingChatExchange> {
   const now = new Date();
   const scopeSnapshot: ChatScope = chatScopeSchema.parse(
     input.scopeSnapshot ?? thread.defaultScope
   );
   const title = thread.messages.length === 0 ? makeThreadTitle(input.content) : thread.title;
   const trimmedContent = input.content.trim();
-  const modelMetadata = chatModelMetadataSchema.parse({
-    provider: "gemini",
-    generationModel: env.AI_GENERATION_MODEL,
-    embeddingModel: env.AI_EMBEDDING_MODEL,
-    embeddingDimension: env.AI_EMBEDDING_DIMENSION,
-    thinkingBudget: env.AI_THINKING_BUDGET_CHAT
-  });
-  const retrievalMetadata = chatRetrievalMetadataSchema.parse({
-    query: trimmedContent,
-    scope: scopeSnapshot,
-    requestedAt: toIso(now),
-    limit: 8,
-    retrievedChunkCount: 0
-  });
+  let assistantMessageId: string | null = null;
 
   await db.transaction(async (tx) => {
     const insertedMessages = await tx
       .insert(chatMessages)
       .values([
         {
-          threadId,
+          threadId: thread.id,
           role: "user",
           content: trimmedContent,
           scopeSnapshot
         },
         {
-          threadId,
+          threadId: thread.id,
           role: "assistant",
           content: "",
           assistantStatus: "pending",
           scopeSnapshot,
-          retrievedChunkReferences: [],
-          modelMetadata,
-          retrievalMetadata
+          retrievedChunkReferences: []
         }
       ])
       .returning();
@@ -166,10 +154,17 @@ export async function createChatMessage(
       throw new Error("Chat message insert returned incomplete rows");
     }
 
+    const assistantMessage = insertedMessages.find((message) => message.role === "assistant");
+    if (!assistantMessage) {
+      throw new Error("Chat assistant message insert returned no row");
+    }
+
+    assistantMessageId = assistantMessage.id;
+
     const [updatedThread] = await tx
       .update(chatThreads)
       .set({ title, updatedAt: now })
-      .where(and(eq(chatThreads.id, threadId), eq(chatThreads.projectId, projectId)))
+      .where(and(eq(chatThreads.id, thread.id), eq(chatThreads.projectId, projectId)))
       .returning();
 
     if (!updatedThread) {
@@ -177,10 +172,72 @@ export async function createChatMessage(
     }
   });
 
-  const detail = await getChatThread(projectId, threadId);
-  if (!detail) {
-    throw new Error("Chat thread disappeared after message insert");
+  if (!assistantMessageId) {
+    throw new Error("Chat assistant message id missing after insert");
   }
 
-  return detail;
+  return {
+    assistantMessageId,
+    scopeSnapshot
+  };
+}
+
+export async function completeAssistantMessage(
+  messageId: string,
+  input: {
+    content: string;
+    modelMetadata: ChatModelMetadata;
+    references: ChatRetrievedChunkReference[];
+    retrievalMetadata: ChatRetrievalMetadata;
+  }
+): Promise<ChatMessage> {
+  return updateAssistantMessage(messageId, {
+    ...input,
+    status: "completed"
+  });
+}
+
+export async function failAssistantMessage(
+  messageId: string,
+  input: {
+    content: string;
+    modelMetadata: ChatModelMetadata;
+    references: ChatRetrievedChunkReference[];
+    retrievalMetadata: ChatRetrievalMetadata;
+  }
+): Promise<ChatMessage> {
+  return updateAssistantMessage(messageId, {
+    ...input,
+    status: "failed"
+  });
+}
+
+async function updateAssistantMessage(
+  messageId: string,
+  input: {
+    content: string;
+    modelMetadata: ChatModelMetadata;
+    references: ChatRetrievedChunkReference[];
+    retrievalMetadata: ChatRetrievalMetadata;
+    status: AssistantMessageStatus;
+  }
+): Promise<ChatMessage> {
+  const [updated] = await db
+    .update(chatMessages)
+    .set({
+      content: input.content,
+      assistantStatus: input.status,
+      retrievedChunkReferences: input.references,
+      modelMetadata: input.modelMetadata,
+      retrievalMetadata: input.retrievalMetadata,
+      updatedAt: new Date()
+    })
+    .where(and(eq(chatMessages.id, messageId), eq(chatMessages.role, "assistant")))
+    .returning();
+
+  if (!updated) {
+    throw new Error("Chat assistant message update returned no row");
+  }
+
+  return mapChatMessage(updated);
 }

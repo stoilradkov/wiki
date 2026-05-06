@@ -1,6 +1,7 @@
 import { Badge } from "@wiki/frontend/components/ui/badge";
+import { Link } from "@tanstack/react-router";
 import type { ChatMessage } from "@wiki/shared";
-import { Bot, User } from "lucide-react";
+import { Bot, FileText, User } from "lucide-react";
 
 interface ChatMessageListProps {
   messages: ChatMessage[];
@@ -51,6 +52,32 @@ export function ChatMessageList({ messages }: ChatMessageListProps) {
               <p className="mt-2 font-mono text-caption uppercase tracking-normal text-faint">
                 {message.assistantStatus}
               </p>
+            ) : null}
+            {message.role === "assistant" && message.retrievedChunkReferences.length > 0 ? (
+              <div className="mt-3 space-y-2 border-t-[0.5px] border-border pt-3">
+                {message.retrievedChunkReferences.map((reference, index) => (
+                  <Link
+                    className="block rounded-md border-[0.5px] border-border bg-surface-2 p-2.5 text-ui text-muted-foreground hover:border-(--border-em) hover:text-foreground"
+                    key={reference.chunkId}
+                    params={{
+                      documentId: reference.documentId,
+                      projectId: reference.projectId
+                    }}
+                    to="/projects/$projectId/documents/$documentId"
+                  >
+                    <span className="flex items-center gap-2 text-caption font-medium text-foreground">
+                      <FileText className="size-3.75 text-muted-foreground" strokeWidth={1.5} />
+                      <span className="font-mono">C{index + 1}</span>
+                      <span className="truncate">
+                        {reference.documentTitle ?? "Untitled document"}
+                      </span>
+                    </span>
+                    <span className="mt-1 block line-clamp-2 text-caption leading-relaxed">
+                      {reference.snippet}
+                    </span>
+                  </Link>
+                ))}
+              </div>
             ) : null}
             {message.role === "assistant" ? (
               <div className="mt-3 flex flex-wrap gap-2 font-mono text-caption text-faint">

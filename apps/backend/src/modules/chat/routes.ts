@@ -9,11 +9,11 @@ import {
   listChatThreadsResponseSchema
 } from "@wiki/shared";
 import {
-  createChatMessage,
   createChatThread,
   getChatThread,
   listChatThreads
 } from "@wiki/backend/modules/chat/repository";
+import { createGroundedChatMessage } from "@wiki/backend/modules/chat/service";
 import { getProject } from "@wiki/backend/modules/projects/repository";
 import { parseBody, parseParams } from "@wiki/backend/routes/helpers";
 
@@ -58,7 +58,7 @@ export async function registerChatRoutes(server: FastifyInstance) {
     async (request, reply) => {
       const { projectId, threadId } = parseParams(request, chatThreadParamsSchema);
       const body = parseBody(request, createChatMessageRequestSchema);
-      const thread = await createChatMessage(projectId, threadId, body);
+      const thread = await createGroundedChatMessage(projectId, threadId, body);
 
       if (!thread) {
         return reply.status(404).send({ error: "not_found", message: "Chat thread not found" });
