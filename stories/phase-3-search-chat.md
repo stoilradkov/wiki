@@ -154,7 +154,7 @@ This phase implements semantic chunking, Gemini embeddings, full-text indexing, 
 - The server buffers the assistant response.
 - On completion, the assistant message is persisted with final text and metadata.
 
-### Story 8.7 - Show Chunk-Level Citations
+### Story 8.7 - Show Chunk-Level Citations [completed]
 
 **Description:** As a user, I want citations to point to source chunks so that I can inspect evidence behind an answer.
 
