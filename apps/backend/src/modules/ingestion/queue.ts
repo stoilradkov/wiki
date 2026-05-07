@@ -16,8 +16,11 @@ const ingestionQueue = new Queue<IngestionJobData>(ingestionQueueName, {
   }
 });
 
-export async function enqueueDocumentIngestion(data: IngestionJobData): Promise<void> {
-  await ingestionQueue.add("process-document", data);
+export async function enqueueDocumentIngestion(
+  data: IngestionJobData,
+  ingestionJobId: string
+): Promise<void> {
+  await ingestionQueue.add("process-document", data, { jobId: ingestionJobId });
 }
 
 export async function closeDocumentIngestionQueue(): Promise<void> {

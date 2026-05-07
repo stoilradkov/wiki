@@ -30,7 +30,7 @@ export type IngestionPipelineDependencies = {
   ) => Promise<DocumentDetail>;
   updateIngestionJobStatus: (
     documentId: string,
-    status: "processing" | "completed"
+    status: "processing" | "completed" | "cancelled"
   ) => Promise<void>;
 };
 
@@ -118,7 +118,8 @@ async function continueAutoIngestion(
     if (step.stage === "extract") {
       const stored = await dependencies.extractAndStoreStructuredDocument(documentId);
       if (!stored) {
-        throw new Error("Extraction skipped: markdown version changed, a newer job has been queued");
+        await dependencies.updateIngestionJobStatus(documentId, "cancelled");
+        return;
       }
     }
 

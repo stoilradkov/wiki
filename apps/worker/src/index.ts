@@ -64,13 +64,14 @@ async function processDocument(
 async function markTerminalFailure(
   error: Error,
   documentId: string,
+  jobId: string,
   publish: (document: DocumentDetail) => Promise<void>
 ): Promise<void> {
   try {
     const classification = classifyIngestionError(error);
     const document = await markDocumentFailed(documentId, classification);
     await publish(document);
-    await updateIngestionJobStatus(documentId, "failed");
+    await updateIngestionJobStatus(documentId, "failed", jobId);
   } catch (error) {
     console.error(
       JSON.stringify({
@@ -154,8 +155,8 @@ worker.on("failed", (job, error) => {
     })
   );
 
-  if (documentId && exhausted) {
-    void markTerminalFailure(error, documentId, async (document) => {
+  if (documentId && job?.id && exhausted) {
+    void markTerminalFailure(error, documentId, job.id, async (document) => {
       await job.updateProgress(
         documentIngestionEventSchema.parse({
           type: "document_failed",

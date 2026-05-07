@@ -278,12 +278,6 @@ export async function createDocument(
     throw new Error("Document insert returned no row");
   }
 
-  await db.insert(ingestionJobs).values({
-    documentId: row.id,
-    status: "queued",
-    payload: { projectId, ingestionMode }
-  });
-
   return mapDocumentDetail(row, null);
 }
 
@@ -760,13 +754,10 @@ export async function restoreQueuedDocumentStage(
 }
 
 export async function markDocumentEnqueueFailed(documentId: string): Promise<DocumentDetail> {
-  return markDocumentFailed(
-    documentId,
-    {
-      code: "database_error",
-      message: "Document could not be queued for ingestion. Try again."
-    }
-  );
+  return markDocumentFailed(documentId, {
+    code: "database_error",
+    message: "Document could not be queued for ingestion. Try again."
+  });
 }
 
 export async function createMarkdownVersionFromMarkdownify(
@@ -853,7 +844,7 @@ export async function createMarkdownVersionFromMarkdownify(
 
 export async function updateIngestionJobStatus(
   documentId: string,
-  status: "queued" | "processing" | "completed" | "failed",
+  status: "queued" | "processing" | "completed" | "failed" | "cancelled",
   jobId?: string
 ): Promise<void> {
   const where = jobId
@@ -874,7 +865,7 @@ export async function updateIngestionJobStatus(
 export async function createQueuedIngestionJob(
   documentId: string,
   payload: Record<string, unknown>
-): Promise<void> {
+): Promise<string> {
   const [row] = await db
     .insert(ingestionJobs)
     .values({
@@ -887,6 +878,8 @@ export async function createQueuedIngestionJob(
   if (!row) {
     throw new Error("Ingestion job insert returned no row");
   }
+
+  return row.id;
 }
 
 export async function markQueuedIngestionJobsFailed(documentId: string): Promise<void> {

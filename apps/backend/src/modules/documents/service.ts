@@ -39,11 +39,13 @@ export async function createDocumentAndEnqueueIngestion(
   );
 
   try {
-    await enqueueDocumentIngestion({
+    const data = {
       documentId: document.id,
       projectId,
       ingestionMode: document.ingestionMode
-    });
+    };
+    const ingestionJobId = await createQueuedIngestionJob(document.id, data);
+    await enqueueDocumentIngestion(data, ingestionJobId);
   } catch (error) {
     await deleteDocument(document.id);
     throw error;
@@ -78,13 +80,16 @@ export async function approveDocumentReview(
   };
 
   try {
-    await createQueuedIngestionJob(documentId, payload);
-    await enqueueDocumentIngestion({
-      documentId,
-      projectId,
-      ingestionMode: queuedDocument.ingestionMode,
-      startStage: "chunk"
-    });
+    const ingestionJobId = await createQueuedIngestionJob(documentId, payload);
+    await enqueueDocumentIngestion(
+      {
+        documentId,
+        projectId,
+        ingestionMode: queuedDocument.ingestionMode,
+        startStage: "chunk"
+      },
+      ingestionJobId
+    );
   } catch (error) {
     await markQueuedIngestionJobsFailed(documentId);
     await restoreQueuedDocumentStage(projectId, documentId, "awaiting_review", "review");
@@ -122,16 +127,24 @@ export async function rerunDocumentMarkdownify(
   };
 
   try {
-    await createQueuedIngestionJob(documentId, payload);
-    await enqueueDocumentIngestion({
-      documentId,
-      projectId,
-      ingestionMode: queuedDocument.ingestionMode,
-      startStage: "markdownify"
-    });
+    const ingestionJobId = await createQueuedIngestionJob(documentId, payload);
+    await enqueueDocumentIngestion(
+      {
+        documentId,
+        projectId,
+        ingestionMode: queuedDocument.ingestionMode,
+        startStage: "markdownify"
+      },
+      ingestionJobId
+    );
   } catch (error) {
     await markQueuedIngestionJobsFailed(documentId);
-    await restoreQueuedDocumentStage(projectId, documentId, document.status, document.pipelineStage);
+    await restoreQueuedDocumentStage(
+      projectId,
+      documentId,
+      document.status,
+      document.pipelineStage
+    );
     throw error;
   }
 
@@ -161,16 +174,24 @@ export async function reprocessCurrentMarkdown(
   };
 
   try {
-    await createQueuedIngestionJob(documentId, payload);
-    await enqueueDocumentIngestion({
-      documentId,
-      projectId,
-      ingestionMode: queuedDocument.ingestionMode,
-      startStage: "reprocess"
-    });
+    const ingestionJobId = await createQueuedIngestionJob(documentId, payload);
+    await enqueueDocumentIngestion(
+      {
+        documentId,
+        projectId,
+        ingestionMode: queuedDocument.ingestionMode,
+        startStage: "reprocess"
+      },
+      ingestionJobId
+    );
   } catch (error) {
     await markQueuedIngestionJobsFailed(documentId);
-    await restoreQueuedDocumentStage(projectId, documentId, document.status, document.pipelineStage);
+    await restoreQueuedDocumentStage(
+      projectId,
+      documentId,
+      document.status,
+      document.pipelineStage
+    );
     throw error;
   }
 
@@ -204,13 +225,16 @@ export async function retryFailedDocumentIngestion(
   };
 
   try {
-    await createQueuedIngestionJob(documentId, payload);
-    await enqueueDocumentIngestion({
-      documentId,
-      projectId,
-      ingestionMode: queuedDocument.ingestionMode,
-      startStage: "retry"
-    });
+    const ingestionJobId = await createQueuedIngestionJob(documentId, payload);
+    await enqueueDocumentIngestion(
+      {
+        documentId,
+        projectId,
+        ingestionMode: queuedDocument.ingestionMode,
+        startStage: "retry"
+      },
+      ingestionJobId
+    );
   } catch (error) {
     await markQueuedIngestionJobsFailed(documentId);
     await restoreQueuedDocumentStage(

@@ -147,23 +147,25 @@ describe("processDocumentIngestion", () => {
     );
   });
 
-  it("throws when extraction is skipped due to markdown version change", async () => {
+  it("cancels stale jobs when extraction skips due to markdown version change", async () => {
     const progressEvents: DocumentIngestionEvent[] = [];
     const stageTransitions: Array<PipelineStage> = [];
     const dependencies = createDependencies(stageTransitions, document, false);
 
-    await expect(
-      processDocumentIngestion(
-        { ...baseJob, startStage: "chunk" },
-        async (event) => {
-          progressEvents.push(event);
-        },
-        dependencies
-      )
-    ).rejects.toThrow("Extraction skipped");
+    await processDocumentIngestion(
+      { ...baseJob, startStage: "chunk" },
+      async (event) => {
+        progressEvents.push(event);
+      },
+      dependencies
+    );
 
     expect(stageTransitions).toEqual(["chunk", "embed"]);
     expect(dependencies.extractAndStoreStructuredDocument).toHaveBeenCalledWith(baseJob.documentId);
+    expect(dependencies.updateIngestionJobStatus).toHaveBeenLastCalledWith(
+      baseJob.documentId,
+      "cancelled"
+    );
     expect(dependencies.updateDocumentProgress).not.toHaveBeenCalledWith(
       baseJob.documentId,
       "ready",
