@@ -1,5 +1,5 @@
 import { createGoogleGenerativeAI, type GoogleLanguageModelOptions } from "@ai-sdk/google";
-import { generateText, streamText } from "ai";
+import { streamText } from "ai";
 import { env } from "@wiki/backend/env";
 import {
   completeAssistantMessage,
@@ -26,22 +26,11 @@ const noKnowledgeBaseAnswer =
   "I do not have enough information in the knowledge base to answer that.";
 const generationFailedAnswer = "I could not generate a grounded answer right now.";
 
-export type ChatAnswerGenerator = (input: {
-  question: string;
-  references: ChatRetrievedChunkReference[];
-  sourceContext: string;
-}) => Promise<string>;
-
 export type ChatAnswerStreamer = (input: {
   question: string;
   references: ChatRetrievedChunkReference[];
   sourceContext: string;
 }) => AsyncIterable<string>;
-
-export type GroundedChatDependencies = {
-  generateAnswer: ChatAnswerGenerator;
-  search: (input: HybridSearchRequest) => Promise<{ results: HybridSearchResult[] }>;
-};
 
 export type GroundedChatStreamDependencies = {
   streamAnswer: ChatAnswerStreamer;
@@ -74,97 +63,6 @@ export async function createPendingGroundedChatMessage(
     thread: updatedThread,
     streamId: pending.assistantMessageId
   };
-}
-
-export async function createGroundedChatMessage(
-  projectId: string,
-  threadId: string,
-  input: CreateChatMessageRequest,
-  dependencies: GroundedChatDependencies = {
-    generateAnswer: generateGroundedAnswer,
-    search: searchHybrid
-  }
-): Promise<ChatThreadDetail | null> {
-  const thread = await getChatThread(projectId, threadId);
-  if (!thread) return null;
-
-  const pending = await createPendingChatExchange(projectId, thread, input);
-  const query = input.content.trim();
-  const scopeSnapshot = pending.scopeSnapshot;
-  const requestedAt = new Date();
-  const modelMetadata = chatModelMetadataSchema.parse({
-    provider: "gemini",
-    generationModel: env.AI_GENERATION_MODEL,
-    embeddingModel: env.AI_EMBEDDING_MODEL,
-    embeddingDimension: env.AI_EMBEDDING_DIMENSION,
-    thinkingBudget: env.AI_THINKING_BUDGET_CHAT
-  });
-  const emptyRetrievalMetadata = chatRetrievalMetadataSchema.parse({
-    query,
-    scope: scopeSnapshot,
-    requestedAt: requestedAt.toISOString(),
-    limit: retrievalLimit,
-    retrievedChunkCount: 0
-  });
-
-  let retrieval: { results: HybridSearchResult[] };
-  try {
-    retrieval = await dependencies.search(createChatSearchRequest(projectId, query, scopeSnapshot));
-  } catch {
-    await failAssistantMessage(pending.assistantMessageId, {
-      content: generationFailedAnswer,
-      modelMetadata,
-      references: [],
-      retrievalMetadata: emptyRetrievalMetadata
-    });
-
-    return getUpdatedThread(projectId, threadId);
-  }
-
-  const references = retrieval.results.map(mapSearchResultToReference);
-  const retrievalMetadata = chatRetrievalMetadataSchema.parse({
-    query,
-    scope: scopeSnapshot,
-    requestedAt: requestedAt.toISOString(),
-    limit: retrievalLimit,
-    retrievedChunkCount: references.length
-  });
-
-  let content = noKnowledgeBaseAnswer;
-  let status: "completed" | "failed" = "completed";
-
-  if (references.length > 0) {
-    try {
-      content = await dependencies.generateAnswer({
-        question: query,
-        references,
-        sourceContext: buildSourceContext(retrieval.results)
-      });
-    } catch {
-      content = generationFailedAnswer;
-      status = "failed";
-    }
-  }
-
-  if (status === "failed") {
-    await failAssistantMessage(pending.assistantMessageId, {
-      content,
-      modelMetadata,
-      references,
-      retrievalMetadata
-    });
-
-    return getUpdatedThread(projectId, threadId);
-  }
-
-  await completeAssistantMessage(pending.assistantMessageId, {
-    content: content.trim() || noKnowledgeBaseAnswer,
-    modelMetadata,
-    references,
-    retrievalMetadata
-  });
-
-  return getUpdatedThread(projectId, threadId);
 }
 
 export async function streamGroundedChatMessage(
@@ -377,45 +275,6 @@ function buildSourceContext(results: HybridSearchResult[]): string {
       ].join("\n");
     })
     .join("\n\n---\n\n");
-}
-
-export async function generateGroundedAnswer(input: {
-  question: string;
-  references: ChatRetrievedChunkReference[];
-  sourceContext: string;
-}): Promise<string> {
-  if (!env.GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY is required for grounded chat answers");
-  }
-
-  const google = createGoogleGenerativeAI({
-    apiKey: env.GEMINI_API_KEY
-  });
-  const { text } = await generateText({
-    model: google(normalizeGeminiModelName(env.AI_GENERATION_MODEL)),
-    system: [
-      "You answer questions using only the retrieved knowledge base sources.",
-      "Do not use general model knowledge by default.",
-      "If the sources do not contain enough information, say the knowledge base does not have enough information.",
-      "Cite every source-backed claim with bracket citations like [C1] or [C2].",
-      "Do not cite sources that do not support the claim."
-    ].join(" "),
-    prompt: [
-      `Question: ${input.question}`,
-      "Retrieved sources:",
-      input.sourceContext,
-      "Answer from these sources only."
-    ].join("\n\n"),
-    providerOptions: {
-      google: {
-        thinkingConfig: {
-          thinkingBudget: env.AI_THINKING_BUDGET_CHAT
-        }
-      } satisfies GoogleLanguageModelOptions
-    }
-  });
-
-  return text;
 }
 
 export function streamGroundedAnswer(input: {

@@ -1,11 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createChatSearchRequest,
-  createGroundedChatMessage,
   createPendingGroundedChatMessage,
   streamGroundedChatMessage
 } from "@wiki/backend/modules/chat/service";
-import { chatThreadDetailSchema, hybridSearchResultSchema } from "@wiki/shared";
+import { chatMessageSchema, chatThreadDetailSchema, hybridSearchResultSchema } from "@wiki/shared";
 
 const mocks = vi.hoisted(() => ({
   claimPendingAssistantMessageStream: vi.fn(),
@@ -42,26 +41,43 @@ const baseThread = chatThreadDetailSchema.parse({
   updatedAt: "2026-05-06T10:00:00.000Z"
 });
 
-const completedThread = chatThreadDetailSchema.parse({
+const userMessage = chatMessageSchema.parse({
+  id: userMessageId,
+  threadId,
+  role: "user",
+  content: "What changed?",
+  assistantStatus: null,
+  scopeSnapshot: {
+    scope: "current_project",
+    selectedProjectIds: []
+  },
+  retrievedChunkReferences: [],
+  modelMetadata: null,
+  retrievalMetadata: null,
+  createdAt: "2026-05-06T10:01:00.000Z",
+  updatedAt: "2026-05-06T10:01:00.000Z"
+});
+
+const pendingAssistantMessage = chatMessageSchema.parse({
+  id: assistantMessageId,
+  threadId,
+  role: "assistant",
+  content: "",
+  assistantStatus: "pending",
+  scopeSnapshot: {
+    scope: "current_project",
+    selectedProjectIds: []
+  },
+  retrievedChunkReferences: [],
+  modelMetadata: null,
+  retrievalMetadata: null,
+  createdAt: "2026-05-06T10:01:01.000Z",
+  updatedAt: "2026-05-06T10:01:01.000Z"
+});
+
+const streamedThread = chatThreadDetailSchema.parse({
   ...baseThread,
-  messages: [
-    {
-      id: userMessageId,
-      threadId,
-      role: "user",
-      content: "What changed?",
-      assistantStatus: null,
-      scopeSnapshot: {
-        scope: "current_project",
-        selectedProjectIds: []
-      },
-      retrievedChunkReferences: [],
-      modelMetadata: null,
-      retrievalMetadata: null,
-      createdAt: "2026-05-06T10:01:00.000Z",
-      updatedAt: "2026-05-06T10:01:00.000Z"
-    }
-  ]
+  messages: [userMessage, pendingAssistantMessage]
 });
 
 const searchResult = hybridSearchResultSchema.parse({
@@ -111,6 +127,22 @@ const searchResult = hybridSearchResultSchema.parse({
   }
 });
 
+function createSink() {
+  return {
+    token: vi.fn(),
+    completed: vi.fn(),
+    error: vi.fn()
+  };
+}
+
+function asyncIterableOf(deltas: string[]): AsyncIterable<string> {
+  return (async function* () {
+    for (const delta of deltas) {
+      yield delta;
+    }
+  })();
+}
+
 describe("chat service", () => {
   beforeEach(() => {
     mocks.claimPendingAssistantMessageStream.mockReset();
@@ -139,44 +171,7 @@ describe("chat service", () => {
   });
 
   it("creates a pending exchange and returns assistant message id as stream id", async () => {
-    const pendingThread = chatThreadDetailSchema.parse({
-      ...baseThread,
-      messages: [
-        {
-          id: userMessageId,
-          threadId,
-          role: "user",
-          content: "What changed?",
-          assistantStatus: null,
-          scopeSnapshot: {
-            scope: "current_project",
-            selectedProjectIds: []
-          },
-          retrievedChunkReferences: [],
-          modelMetadata: null,
-          retrievalMetadata: null,
-          createdAt: "2026-05-06T10:01:00.000Z",
-          updatedAt: "2026-05-06T10:01:00.000Z"
-        },
-        {
-          id: assistantMessageId,
-          threadId,
-          role: "assistant",
-          content: "",
-          assistantStatus: "pending",
-          scopeSnapshot: {
-            scope: "current_project",
-            selectedProjectIds: []
-          },
-          retrievedChunkReferences: [],
-          modelMetadata: null,
-          retrievalMetadata: null,
-          createdAt: "2026-05-06T10:01:00.000Z",
-          updatedAt: "2026-05-06T10:01:00.000Z"
-        }
-      ]
-    });
-    mocks.getChatThread.mockResolvedValueOnce(baseThread).mockResolvedValueOnce(pendingThread);
+    mocks.getChatThread.mockResolvedValueOnce(baseThread).mockResolvedValueOnce(streamedThread);
     mocks.createPendingChatExchange.mockResolvedValue({
       assistantMessageId,
       scopeSnapshot: {
@@ -188,31 +183,33 @@ describe("chat service", () => {
     await expect(
       createPendingGroundedChatMessage(projectId, threadId, { content: "What changed?" })
     ).resolves.toEqual({
-      thread: pendingThread,
+      thread: streamedThread,
       streamId: assistantMessageId
     });
   });
 
-  it("retrieves hybrid results, generates grounded answer, and persists citations", async () => {
-    const generateAnswer = vi.fn().mockResolvedValue("Chat is grounded now [C1].");
+  it("retrieves hybrid results, streams grounded answer, and persists citations", async () => {
+    const streamAnswer = vi
+      .fn()
+      .mockReturnValue(asyncIterableOf(["Chat is ", "grounded now [C1]."]));
     const search = vi.fn().mockResolvedValue({ results: [searchResult] });
-    mocks.getChatThread.mockResolvedValueOnce(baseThread).mockResolvedValueOnce(completedThread);
-    mocks.createPendingChatExchange.mockResolvedValue({
-      assistantMessageId,
-      scopeSnapshot: {
-        scope: "current_project",
-        selectedProjectIds: []
-      }
+    const completedMessage = chatMessageSchema.parse({
+      ...pendingAssistantMessage,
+      content: "Chat is grounded now [C1].",
+      assistantStatus: "completed"
     });
+    const sink = createSink();
+    mocks.getChatThread.mockResolvedValueOnce(streamedThread);
+    mocks.claimPendingAssistantMessageStream.mockResolvedValue(pendingAssistantMessage);
+    mocks.completeAssistantMessage.mockResolvedValue(completedMessage);
 
-    const result = await createGroundedChatMessage(
-      projectId,
-      threadId,
-      { content: "What changed?" },
-      { generateAnswer, search }
-    );
+    await expect(
+      streamGroundedChatMessage(projectId, threadId, assistantMessageId, sink, {
+        streamAnswer,
+        search
+      })
+    ).resolves.toBe(true);
 
-    expect(result).toEqual(completedThread);
     expect(search).toHaveBeenCalledWith(
       expect.objectContaining({
         query: "What changed?",
@@ -220,12 +217,14 @@ describe("chat service", () => {
         documentStatuses: ["ready"]
       })
     );
-    expect(generateAnswer).toHaveBeenCalledWith(
+    expect(streamAnswer).toHaveBeenCalledWith(
       expect.objectContaining({
         question: "What changed?",
         sourceContext: expect.stringContaining("[C1] Release Notes")
       })
     );
+    expect(sink.token).toHaveBeenNthCalledWith(1, "Chat is ");
+    expect(sink.token).toHaveBeenNthCalledWith(2, "grounded now [C1].");
     expect(mocks.completeAssistantMessage).toHaveBeenCalledWith(
       assistantMessageId,
       expect.objectContaining({
@@ -244,29 +243,33 @@ describe("chat service", () => {
         ]
       })
     );
+    expect(sink.completed).toHaveBeenCalledWith(completedMessage);
+    expect(sink.error).not.toHaveBeenCalled();
     expect(mocks.failAssistantMessage).not.toHaveBeenCalled();
   });
 
   it("answers with lack-of-information message when retrieval returns no chunks", async () => {
-    const generateAnswer = vi.fn();
+    const streamAnswer = vi.fn();
     const search = vi.fn().mockResolvedValue({ results: [] });
-    mocks.getChatThread.mockResolvedValueOnce(baseThread).mockResolvedValueOnce(completedThread);
-    mocks.createPendingChatExchange.mockResolvedValue({
-      assistantMessageId,
-      scopeSnapshot: {
-        scope: "current_project",
-        selectedProjectIds: []
-      }
+    const completedMessage = chatMessageSchema.parse({
+      ...pendingAssistantMessage,
+      content: "I do not have enough information in the knowledge base to answer that.",
+      assistantStatus: "completed"
     });
+    const sink = createSink();
+    mocks.getChatThread.mockResolvedValueOnce(streamedThread);
+    mocks.claimPendingAssistantMessageStream.mockResolvedValue(pendingAssistantMessage);
+    mocks.completeAssistantMessage.mockResolvedValue(completedMessage);
 
-    await createGroundedChatMessage(
-      projectId,
-      threadId,
-      { content: "Unknown?" },
-      { generateAnswer, search }
-    );
+    await expect(
+      streamGroundedChatMessage(projectId, threadId, assistantMessageId, sink, {
+        streamAnswer,
+        search
+      })
+    ).resolves.toBe(true);
 
-    expect(generateAnswer).not.toHaveBeenCalled();
+    expect(streamAnswer).not.toHaveBeenCalled();
+    expect(sink.token).not.toHaveBeenCalled();
     expect(mocks.completeAssistantMessage).toHaveBeenCalledWith(
       assistantMessageId,
       expect.objectContaining({
@@ -274,140 +277,159 @@ describe("chat service", () => {
         references: []
       })
     );
+    expect(sink.completed).toHaveBeenCalledWith(completedMessage);
   });
 
   it("surfaces assistant persistence errors instead of converting them to failed answers", async () => {
-    const generateAnswer = vi.fn().mockResolvedValue("Chat is grounded now [C1].");
+    const streamAnswer = vi
+      .fn()
+      .mockReturnValue(asyncIterableOf(["Chat is grounded now [C1]."]));
     const search = vi.fn().mockResolvedValue({ results: [searchResult] });
     const persistenceError = new Error("Chat assistant message update returned no row");
-    mocks.getChatThread.mockResolvedValueOnce(baseThread);
-    mocks.createPendingChatExchange.mockResolvedValue({
-      assistantMessageId,
-      scopeSnapshot: {
-        scope: "current_project",
-        selectedProjectIds: []
-      }
-    });
+    const sink = createSink();
+    mocks.getChatThread.mockResolvedValueOnce(streamedThread);
+    mocks.claimPendingAssistantMessageStream.mockResolvedValue(pendingAssistantMessage);
     mocks.completeAssistantMessage.mockRejectedValue(persistenceError);
 
     await expect(
-      createGroundedChatMessage(
-        projectId,
-        threadId,
-        { content: "What changed?" },
-        { generateAnswer, search }
-      )
+      streamGroundedChatMessage(projectId, threadId, assistantMessageId, sink, {
+        streamAnswer,
+        search
+      })
     ).rejects.toThrow(persistenceError);
 
     expect(mocks.failAssistantMessage).not.toHaveBeenCalled();
+    expect(sink.error).not.toHaveBeenCalled();
+    expect(sink.completed).not.toHaveBeenCalled();
   });
 
   it("streams answer deltas and persists final buffered assistant content", async () => {
-    const streamedThread = chatThreadDetailSchema.parse({
-      ...completedThread,
-      messages: [
-        ...completedThread.messages,
-        {
-          id: assistantMessageId,
-          threadId,
-          role: "assistant",
-          content: "",
-          assistantStatus: "pending",
-          scopeSnapshot: {
-            scope: "current_project",
-            selectedProjectIds: []
-          },
-          retrievedChunkReferences: [],
-          modelMetadata: null,
-          retrievalMetadata: null,
-          createdAt: "2026-05-06T10:01:01.000Z",
-          updatedAt: "2026-05-06T10:01:01.000Z"
-        }
-      ]
-    });
-    const streamAnswer = vi.fn().mockReturnValue(
-      (async function* () {
-        yield "Chat ";
-        yield "streams [C1].";
-      })()
-    );
+    const streamAnswer = vi
+      .fn()
+      .mockReturnValue(asyncIterableOf(["Chat ", "streams [C1]."]));
     const search = vi.fn().mockResolvedValue({ results: [searchResult] });
-    const completedMessage = {
-      ...streamedThread.messages[1],
+    const completedMessage = chatMessageSchema.parse({
+      ...pendingAssistantMessage,
       content: "Chat streams [C1].",
       assistantStatus: "completed"
-    };
-    const token = vi.fn();
-    const completed = vi.fn();
-    const error = vi.fn();
+    });
+    const sink = createSink();
     mocks.getChatThread.mockResolvedValueOnce(streamedThread);
-    mocks.claimPendingAssistantMessageStream.mockResolvedValue(streamedThread.messages[1]);
+    mocks.claimPendingAssistantMessageStream.mockResolvedValue(pendingAssistantMessage);
     mocks.completeAssistantMessage.mockResolvedValue(completedMessage);
 
     await expect(
-      streamGroundedChatMessage(projectId, threadId, assistantMessageId, { token, completed, error }, {
+      streamGroundedChatMessage(projectId, threadId, assistantMessageId, sink, {
         streamAnswer,
         search
       })
     ).resolves.toBe(true);
 
     expect(mocks.claimPendingAssistantMessageStream).toHaveBeenCalledWith(assistantMessageId);
-    expect(token).toHaveBeenNthCalledWith(1, "Chat ");
-    expect(token).toHaveBeenNthCalledWith(2, "streams [C1].");
+    expect(sink.token).toHaveBeenNthCalledWith(1, "Chat ");
+    expect(sink.token).toHaveBeenNthCalledWith(2, "streams [C1].");
     expect(mocks.completeAssistantMessage).toHaveBeenCalledWith(
       assistantMessageId,
       expect.objectContaining({
         content: "Chat streams [C1]."
       })
     );
-    expect(completed).toHaveBeenCalledWith(completedMessage);
-    expect(error).not.toHaveBeenCalled();
+    expect(sink.completed).toHaveBeenCalledWith(completedMessage);
+    expect(sink.error).not.toHaveBeenCalled();
   });
 
-  it("refuses non-pending assistant streams before retrieval or model calls", async () => {
-    const streamedThread = chatThreadDetailSchema.parse({
-      ...completedThread,
-      messages: [
-        ...completedThread.messages,
-        {
-          id: assistantMessageId,
-          threadId,
-          role: "assistant",
-          content: "Already done.",
-          assistantStatus: "completed",
-          scopeSnapshot: {
-            scope: "current_project",
-            selectedProjectIds: []
-          },
-          retrievedChunkReferences: [],
-          modelMetadata: null,
-          retrievalMetadata: null,
-          createdAt: "2026-05-06T10:01:01.000Z",
-          updatedAt: "2026-05-06T10:01:01.000Z"
-        }
-      ]
-    });
+  it("refuses to stream when claim returns null", async () => {
     const streamAnswer = vi.fn();
     const search = vi.fn();
+    const sink = createSink();
     mocks.getChatThread.mockResolvedValueOnce(streamedThread);
     mocks.claimPendingAssistantMessageStream.mockResolvedValue(null);
 
     await expect(
-      streamGroundedChatMessage(
-        projectId,
-        threadId,
-        assistantMessageId,
-        { token: vi.fn(), completed: vi.fn(), error: vi.fn() },
-        {
-          streamAnswer,
-          search
-        }
-      )
+      streamGroundedChatMessage(projectId, threadId, assistantMessageId, sink, {
+        streamAnswer,
+        search
+      })
     ).resolves.toBe(false);
 
     expect(search).not.toHaveBeenCalled();
     expect(streamAnswer).not.toHaveBeenCalled();
     expect(mocks.completeAssistantMessage).not.toHaveBeenCalled();
     expect(mocks.failAssistantMessage).not.toHaveBeenCalled();
+  });
+
+  it("fails assistant message and emits sink.error when retrieval throws", async () => {
+    const streamAnswer = vi.fn();
+    const search = vi.fn().mockRejectedValue(new Error("hybrid search exploded"));
+    const failedMessage = chatMessageSchema.parse({
+      ...pendingAssistantMessage,
+      content: "I could not generate a grounded answer right now.",
+      assistantStatus: "failed"
+    });
+    const sink = createSink();
+    mocks.getChatThread.mockResolvedValueOnce(streamedThread);
+    mocks.claimPendingAssistantMessageStream.mockResolvedValue(pendingAssistantMessage);
+    mocks.failAssistantMessage.mockResolvedValue(failedMessage);
+
+    await expect(
+      streamGroundedChatMessage(projectId, threadId, assistantMessageId, sink, {
+        streamAnswer,
+        search
+      })
+    ).resolves.toBe(true);
+
+    expect(streamAnswer).not.toHaveBeenCalled();
+    expect(sink.token).not.toHaveBeenCalled();
+    expect(mocks.completeAssistantMessage).not.toHaveBeenCalled();
+    expect(mocks.failAssistantMessage).toHaveBeenCalledWith(
+      assistantMessageId,
+      expect.objectContaining({
+        content: "I could not generate a grounded answer right now.",
+        references: [],
+        retrievalMetadata: expect.objectContaining({ retrievedChunkCount: 0 })
+      })
+    );
+    expect(sink.error).toHaveBeenCalledWith(failedMessage);
+    expect(sink.completed).not.toHaveBeenCalled();
+  });
+
+  it("fails assistant message and emits sink.error when streaming throws mid-token", async () => {
+    const streamAnswer = vi.fn().mockReturnValue(
+      (async function* () {
+        yield "Partial ";
+        throw new Error("stream blew up");
+      })()
+    );
+    const search = vi.fn().mockResolvedValue({ results: [searchResult] });
+    const failedMessage = chatMessageSchema.parse({
+      ...pendingAssistantMessage,
+      content: "Partial",
+      assistantStatus: "failed"
+    });
+    const sink = createSink();
+    mocks.getChatThread.mockResolvedValueOnce(streamedThread);
+    mocks.claimPendingAssistantMessageStream.mockResolvedValue(pendingAssistantMessage);
+    mocks.failAssistantMessage.mockResolvedValue(failedMessage);
+
+    await expect(
+      streamGroundedChatMessage(projectId, threadId, assistantMessageId, sink, {
+        streamAnswer,
+        search
+      })
+    ).resolves.toBe(true);
+
+    expect(sink.token).toHaveBeenCalledWith("Partial ");
+    expect(mocks.completeAssistantMessage).not.toHaveBeenCalled();
+    expect(mocks.failAssistantMessage).toHaveBeenCalledWith(
+      assistantMessageId,
+      expect.objectContaining({
+        content: "Partial",
+        references: expect.arrayContaining([
+          expect.objectContaining({ chunkId: searchResult.chunk.id })
+        ])
+      })
+    );
+    expect(sink.error).toHaveBeenCalledWith(failedMessage);
+    expect(sink.completed).not.toHaveBeenCalled();
   });
 });
