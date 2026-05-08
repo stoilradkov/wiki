@@ -16,6 +16,7 @@ import { getAppSettings } from "@wiki/backend/modules/settings/repository";
 import type {
   CreateDocumentRequest,
   DocumentDetail,
+  IngestionJobData,
   IngestionMode,
   ProjectIngestionMode
 } from "@wiki/shared";
@@ -24,6 +25,23 @@ export class DocumentActionConflictError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "DocumentActionConflictError";
+  }
+}
+
+async function enqueueWithRollback(
+  documentId: string,
+  payload: Omit<IngestionJobData, "documentId">,
+  rollback: () => Promise<unknown>
+): Promise<void> {
+  const jobData: IngestionJobData = { documentId, ...payload };
+
+  try {
+    const ingestionJobId = await createQueuedIngestionJob(documentId, jobData);
+    await enqueueDocumentIngestion(jobData, ingestionJobId);
+  } catch (error) {
+    await markQueuedIngestionJobsFailed(documentId);
+    await rollback();
+    throw error;
   }
 }
 
@@ -73,28 +91,15 @@ export async function approveDocumentReview(
     throw new DocumentActionConflictError("Document is no longer awaiting review");
   }
 
-  const payload = {
-    projectId,
-    ingestionMode: queuedDocument.ingestionMode,
-    startStage: "chunk"
-  };
-
-  try {
-    const ingestionJobId = await createQueuedIngestionJob(documentId, payload);
-    await enqueueDocumentIngestion(
-      {
-        documentId,
-        projectId,
-        ingestionMode: queuedDocument.ingestionMode,
-        startStage: "chunk"
-      },
-      ingestionJobId
-    );
-  } catch (error) {
-    await markQueuedIngestionJobsFailed(documentId);
-    await restoreQueuedDocumentStage(projectId, documentId, "awaiting_review", "review");
-    throw error;
-  }
+  await enqueueWithRollback(
+    documentId,
+    {
+      projectId,
+      ingestionMode: queuedDocument.ingestionMode,
+      startStage: "chunk"
+    },
+    () => restoreQueuedDocumentStage(projectId, documentId, "awaiting_review", "review")
+  );
 
   return queuedDocument;
 }
@@ -120,33 +125,16 @@ export async function rerunDocumentMarkdownify(
     throw new DocumentActionConflictError("Document status changed before markdownify rerun");
   }
 
-  const payload = {
-    projectId,
-    ingestionMode: queuedDocument.ingestionMode,
-    startStage: "markdownify"
-  };
-
-  try {
-    const ingestionJobId = await createQueuedIngestionJob(documentId, payload);
-    await enqueueDocumentIngestion(
-      {
-        documentId,
-        projectId,
-        ingestionMode: queuedDocument.ingestionMode,
-        startStage: "markdownify"
-      },
-      ingestionJobId
-    );
-  } catch (error) {
-    await markQueuedIngestionJobsFailed(documentId);
-    await restoreQueuedDocumentStage(
+  await enqueueWithRollback(
+    documentId,
+    {
       projectId,
-      documentId,
-      document.status,
-      document.pipelineStage
-    );
-    throw error;
-  }
+      ingestionMode: queuedDocument.ingestionMode,
+      startStage: "markdownify"
+    },
+    () =>
+      restoreQueuedDocumentStage(projectId, documentId, document.status, document.pipelineStage)
+  );
 
   return queuedDocument;
 }
@@ -167,33 +155,16 @@ export async function reprocessCurrentMarkdown(
     throw new DocumentActionConflictError("Document is not ready for reprocessing");
   }
 
-  const payload = {
-    projectId,
-    ingestionMode: queuedDocument.ingestionMode,
-    startStage: "reprocess"
-  };
-
-  try {
-    const ingestionJobId = await createQueuedIngestionJob(documentId, payload);
-    await enqueueDocumentIngestion(
-      {
-        documentId,
-        projectId,
-        ingestionMode: queuedDocument.ingestionMode,
-        startStage: "reprocess"
-      },
-      ingestionJobId
-    );
-  } catch (error) {
-    await markQueuedIngestionJobsFailed(documentId);
-    await restoreQueuedDocumentStage(
+  await enqueueWithRollback(
+    documentId,
+    {
       projectId,
-      documentId,
-      document.status,
-      document.pipelineStage
-    );
-    throw error;
-  }
+      ingestionMode: queuedDocument.ingestionMode,
+      startStage: "reprocess"
+    },
+    () =>
+      restoreQueuedDocumentStage(projectId, documentId, document.status, document.pipelineStage)
+  );
 
   return queuedDocument;
 }
@@ -218,34 +189,22 @@ export async function retryFailedDocumentIngestion(
     throw new DocumentActionConflictError("Document is no longer failed");
   }
 
-  const payload = {
-    projectId,
-    ingestionMode: queuedDocument.ingestionMode,
-    startStage: "retry"
-  };
-
-  try {
-    const ingestionJobId = await createQueuedIngestionJob(documentId, payload);
-    await enqueueDocumentIngestion(
-      {
-        documentId,
-        projectId,
-        ingestionMode: queuedDocument.ingestionMode,
-        startStage: "retry"
-      },
-      ingestionJobId
-    );
-  } catch (error) {
-    await markQueuedIngestionJobsFailed(documentId);
-    await restoreQueuedDocumentStage(
+  await enqueueWithRollback(
+    documentId,
+    {
       projectId,
-      documentId,
-      document.status,
-      document.pipelineStage,
-      getDocumentFailure(document)
-    );
-    throw error;
-  }
+      ingestionMode: queuedDocument.ingestionMode,
+      startStage: "retry"
+    },
+    () =>
+      restoreQueuedDocumentStage(
+        projectId,
+        documentId,
+        document.status,
+        document.pipelineStage,
+        getDocumentFailure(document)
+      )
+  );
 
   return queuedDocument;
 }
