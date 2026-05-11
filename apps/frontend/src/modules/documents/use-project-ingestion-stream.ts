@@ -43,11 +43,20 @@ export function useProjectIngestionStream(projectId: string): void {
 
       if (parsed.type === "document_ready") {
         void queryClient.invalidateQueries({
+          queryKey: documentQueryKeys.detail(projectId, parsed.document.id)
+        });
+        void queryClient.invalidateQueries({
           queryKey: documentQueryKeys.chunks(
             projectId,
             parsed.document.id,
             parsed.document.currentMarkdownVersionId
           )
+        });
+      }
+
+      if (parsed.type === "document_failed") {
+        void queryClient.invalidateQueries({
+          queryKey: documentQueryKeys.detail(projectId, parsed.document.id)
         });
       }
     };

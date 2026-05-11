@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { DocumentDetail } from "@wiki/shared";
 import { SectionError, SkeletonBlock } from "@wiki/frontend/components/interaction";
+import { Badge } from "@wiki/frontend/components/ui/badge";
 import { listDocumentChunks } from "@wiki/frontend/modules/documents/api";
 import { documentQueryKeys } from "@wiki/frontend/modules/documents/query-keys";
 import { useEffect } from "react";
@@ -49,7 +50,9 @@ export function DocumentChunksPanel({
         <span>status: {sourceDocument.status}</span>
         <span>stage: {sourceDocument.pipelineStage ?? "none"}</span>
         <span>markdownVersionId: {sourceDocument.currentMarkdownVersion?.id ?? "none"}</span>
-        <span>markdownVersion: {sourceDocument.currentMarkdownVersion?.versionNumber ?? "none"}</span>
+        <span>
+          markdownVersion: {sourceDocument.currentMarkdownVersion?.versionNumber ?? "none"}
+        </span>
         <span>markdownHash: {sourceDocument.currentMarkdownVersion?.markdownHash ?? "none"}</span>
         <span>markdownCharacters: {characterCount}</span>
         <span>markdownLines: {lineCount}</span>
@@ -62,10 +65,7 @@ export function DocumentChunksPanel({
         </div>
       ) : null}
       {chunksQuery.isError ? (
-        <SectionError
-          message="Could not load chunks"
-          onRetry={() => void chunksQuery.refetch()}
-        />
+        <SectionError message="Could not load chunks" onRetry={() => void chunksQuery.refetch()} />
       ) : null}
       {chunksQuery.data?.length === 0 ? (
         <div className="rounded-md border-[0.5px] border-border bg-surface-2 p-3.5 text-ui text-muted-foreground">
@@ -84,9 +84,7 @@ export function DocumentChunksPanel({
             return (
               <article
                 className={`rounded-md border-[0.5px] p-3.5 ${
-                  isTarget
-                    ? "border-accent bg-surface-1"
-                    : "border-border bg-surface-2"
+                  isTarget ? "border-accent bg-surface-1" : "border-border bg-surface-2"
                 }`}
                 id={`chunk-${chunk.id}`}
                 key={chunk.id}
@@ -100,6 +98,18 @@ export function DocumentChunksPanel({
                     </p>
                   </div>
                   <span className="font-mono text-caption text-muted-foreground">
+                    <Badge
+                      dot
+                      variant={
+                        chunk.embeddingStatus === "completed"
+                          ? "ready"
+                          : chunk.embeddingStatus === "failed"
+                            ? "failed"
+                            : "processing"
+                      }
+                    >
+                      {chunk.embeddingStatus}
+                    </Badge>{" "}
                     {chunk.embeddingModel ?? "not embedded"}
                   </span>
                 </div>

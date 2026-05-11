@@ -149,6 +149,13 @@ describe("shared domain enums", () => {
         rawContentHash: "raw123",
         rawContent: "Full Notes\nDetail preserved",
         currentMarkdownVersion: markdownVersion,
+        embeddingStats: {
+          completed: 2,
+          failed: 0,
+          partiallyEmbedded: false,
+          pending: 0,
+          total: 2
+        },
         createdAt: "2026-05-04T00:00:00.000Z",
         updatedAt: "2026-05-04T00:00:00.000Z"
       }).currentMarkdownVersion

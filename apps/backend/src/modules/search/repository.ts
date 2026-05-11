@@ -24,6 +24,7 @@ type FullTextSearchRow = {
   chunkEmbeddedAt: Date | null;
   chunkEmbeddingDimension: number | null;
   chunkEmbeddingModel: string | null;
+  chunkEmbeddingStatus: DocumentChunk["embeddingStatus"];
   chunkEmbeddingTaskType: DocumentChunk["embeddingTaskType"];
   chunkEndOffset: number;
   chunkHeadingPath: string[];
@@ -46,14 +47,19 @@ type FullTextSearchRow = {
   chunkHighlight: string;
 };
 
-type VectorSearchRow = Omit<
-  FullTextSearchRow,
-  "chunkHighlight" | "documentHighlight" | "rank"
-> & {
+type VectorSearchRow = Omit<FullTextSearchRow, "chunkHighlight" | "documentHighlight" | "rank"> & {
   distance: number;
 };
 
-function mapChunk(row: FullTextSearchRow): DocumentChunk {
+function resolveChunkEmbeddingStatus(
+  row: Pick<FullTextSearchRow, "chunkEmbeddedAt" | "chunkEmbeddingStatus">
+): DocumentChunk["embeddingStatus"] {
+  if (row.chunkEmbeddingStatus === "failed") return "failed";
+  if (row.chunkEmbeddingStatus === "completed" || row.chunkEmbeddedAt) return "completed";
+  return "pending";
+}
+
+function mapChunk(row: FullTextSearchRow | VectorSearchRow): DocumentChunk {
   return documentChunkSchema.parse({
     id: row.chunkId,
     documentId: row.documentId,
@@ -67,6 +73,7 @@ function mapChunk(row: FullTextSearchRow): DocumentChunk {
       start: row.chunkStartOffset,
       end: row.chunkEndOffset
     },
+    embeddingStatus: resolveChunkEmbeddingStatus(row),
     embeddingModel: row.chunkEmbeddingModel,
     embeddingDimension: row.chunkEmbeddingDimension,
     embeddingTaskType: row.chunkEmbeddingTaskType,
@@ -100,9 +107,7 @@ function mapFullTextSearchRow(row: FullTextSearchRow): FullTextSearchResponse["r
 }
 
 export function sanitizeSearchHighlight(value: string): string {
-  return escapeHtml(value)
-    .replaceAll(headlineStart, "<mark>")
-    .replaceAll(headlineStop, "</mark>");
+  return escapeHtml(value).replaceAll(headlineStart, "<mark>").replaceAll(headlineStop, "</mark>");
 }
 
 function escapeHtml(value: string): string {
@@ -132,6 +137,7 @@ export async function searchFullText(
       chunkEmbeddedAt: documentChunks.embeddedAt,
       chunkEmbeddingDimension: documentChunks.embeddingDimension,
       chunkEmbeddingModel: documentChunks.embeddingModel,
+      chunkEmbeddingStatus: documentChunks.embeddingStatus,
       chunkEmbeddingTaskType: documentChunks.embeddingTaskType,
       chunkEndOffset: documentChunks.endOffset,
       chunkHeadingPath: documentChunks.headingPath,
@@ -223,6 +229,7 @@ export async function searchVector(
       chunkEmbeddedAt: documentChunks.embeddedAt,
       chunkEmbeddingDimension: documentChunks.embeddingDimension,
       chunkEmbeddingModel: documentChunks.embeddingModel,
+      chunkEmbeddingStatus: documentChunks.embeddingStatus,
       chunkEmbeddingTaskType: documentChunks.embeddingTaskType,
       chunkEndOffset: documentChunks.endOffset,
       chunkHeadingPath: documentChunks.headingPath,
@@ -259,25 +266,7 @@ export async function searchVector(
 
 function mapVectorSearchRow(row: VectorSearchRow): FullTextSearchResponse["results"][number] {
   return {
-    chunk: documentChunkSchema.parse({
-      id: row.chunkId,
-      documentId: row.documentId,
-      markdownVersionId: row.chunkMarkdownVersionId,
-      chunkIndex: row.chunkIndex,
-      headingPath: row.chunkHeadingPath,
-      content: row.chunkContent,
-      contentHash: row.chunkContentHash,
-      tokenCount: row.chunkTokenCount,
-      markdownOffsets: {
-        start: row.chunkStartOffset,
-        end: row.chunkEndOffset
-      },
-      embeddingModel: row.chunkEmbeddingModel,
-      embeddingDimension: row.chunkEmbeddingDimension,
-      embeddingTaskType: row.chunkEmbeddingTaskType,
-      embeddedAt: row.chunkEmbeddedAt ? toIso(row.chunkEmbeddedAt) : null,
-      createdAt: toIso(row.chunkCreatedAt)
-    }),
+    chunk: mapChunk(row),
     document: {
       id: row.documentId,
       projectId: row.documentProjectId,
@@ -300,9 +289,7 @@ function mapVectorSearchRow(row: VectorSearchRow): FullTextSearchResponse["resul
 }
 
 export function createSearchFilters(input: FullTextSearchRequest, query?: string): SQL[] {
-  const filters: SQL[] = [
-    eq(documentChunks.markdownVersionId, documents.currentMarkdownVersionId)
-  ];
+  const filters: SQL[] = [eq(documentChunks.markdownVersionId, documents.currentMarkdownVersionId)];
 
   if (query) {
     const textMatch = or(
@@ -418,14 +405,12 @@ function addRankedResults(
   results.forEach((result, index) => {
     const rank = index + 1;
     const existing = scores.get(result.chunk.id);
-    const entry =
-      existing ??
-      {
-        fullTextRank: null,
-        result,
-        score: 0,
-        semanticRank: null
-      };
+    const entry = existing ?? {
+      fullTextRank: null,
+      result,
+      score: 0,
+      semanticRank: null
+    };
 
     entry[rankKey] = rank;
     entry.score += 1 / (rrfK + rank);

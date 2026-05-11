@@ -209,9 +209,26 @@ export const markdownVersionSchema = z.object({
 
 export type MarkdownVersion = z.infer<typeof markdownVersionSchema>;
 
+export const documentChunkEmbeddingStatusValues = ["pending", "completed", "failed"] as const;
+
+export const documentChunkEmbeddingStatusSchema = z.enum(documentChunkEmbeddingStatusValues);
+
+export type DocumentChunkEmbeddingStatus = z.infer<typeof documentChunkEmbeddingStatusSchema>;
+
+export const documentEmbeddingStatsSchema = z.object({
+  total: z.number().int().min(0),
+  pending: z.number().int().min(0),
+  completed: z.number().int().min(0),
+  failed: z.number().int().min(0),
+  partiallyEmbedded: z.boolean()
+});
+
+export type DocumentEmbeddingStats = z.infer<typeof documentEmbeddingStatsSchema>;
+
 export const documentDetailSchema = documentSchema.extend({
   rawContent: z.string().nullable(),
-  currentMarkdownVersion: markdownVersionSchema.nullable()
+  currentMarkdownVersion: markdownVersionSchema.nullable(),
+  embeddingStats: documentEmbeddingStatsSchema
 });
 
 export type DocumentDetail = z.infer<typeof documentDetailSchema>;
@@ -239,6 +256,7 @@ export const documentChunkSchema = z.object({
   contentHash: z.string().min(1),
   tokenCount: z.number().int().min(1),
   markdownOffsets: markdownChunkOffsetSchema,
+  embeddingStatus: documentChunkEmbeddingStatusSchema,
   embeddingModel: z.string().min(1).nullable(),
   embeddingDimension: z.number().int().min(1).nullable(),
   embeddingTaskType: embeddingTaskTypeSchema.nullable(),

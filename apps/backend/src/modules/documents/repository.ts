@@ -20,6 +20,8 @@ import {
   markdownVersionSchema,
   type CheckDuplicateDocumentRequest,
   type CreateDocumentRequest,
+  type DocumentChunkEmbeddingStatus,
+  type DocumentEmbeddingStats,
   type DocumentChunk,
   type EmbeddingTaskType,
   type DocumentIngestionEvent,
@@ -46,6 +48,24 @@ import {
 import { chunkMarkdownSemantically } from "@wiki/backend/modules/documents/semantic-chunker";
 
 const toIso = (value: Date) => value.toISOString();
+
+function createEmptyEmbeddingStats(): DocumentEmbeddingStats {
+  return {
+    completed: 0,
+    failed: 0,
+    partiallyEmbedded: false,
+    pending: 0,
+    total: 0
+  };
+}
+
+function resolveDocumentChunkEmbeddingStatus(
+  row: Pick<typeof documentChunks.$inferSelect, "embeddedAt" | "embeddingStatus">
+): DocumentChunkEmbeddingStatus {
+  if (row.embeddingStatus === "failed") return "failed";
+  if (row.embeddingStatus === "completed" || row.embeddedAt) return "completed";
+  return "pending";
+}
 
 function mapDocument(
   row: typeof documents.$inferSelect,
@@ -95,6 +115,7 @@ function mapDocumentChunk(row: typeof documentChunks.$inferSelect): DocumentChun
       start: row.startOffset,
       end: row.endOffset
     },
+    embeddingStatus: resolveDocumentChunkEmbeddingStatus(row),
     embeddingModel: row.embeddingModel,
     embeddingDimension: row.embeddingDimension,
     embeddingTaskType: row.embeddingTaskType,
@@ -105,13 +126,44 @@ function mapDocumentChunk(row: typeof documentChunks.$inferSelect): DocumentChun
 
 function mapDocumentDetail(
   row: typeof documents.$inferSelect,
-  currentMarkdownVersion: MarkdownVersion | null
+  currentMarkdownVersion: MarkdownVersion | null,
+  embeddingStats = createEmptyEmbeddingStats()
 ): DocumentDetail {
   return documentDetailSchema.parse({
     ...mapDocument(row, row.currentMarkdownVersionId ?? currentMarkdownVersion?.id ?? null),
     rawContent: row.rawContent,
-    currentMarkdownVersion
+    currentMarkdownVersion,
+    embeddingStats
   });
+}
+
+async function getDocumentEmbeddingStats(
+  markdownVersionId: string | null
+): Promise<DocumentEmbeddingStats> {
+  if (!markdownVersionId) return createEmptyEmbeddingStats();
+
+  const rows = await db
+    .select({
+      embeddedAt: documentChunks.embeddedAt,
+      embeddingStatus: documentChunks.embeddingStatus
+    })
+    .from(documentChunks)
+    .where(eq(documentChunks.markdownVersionId, markdownVersionId));
+
+  const stats = rows.reduce<DocumentEmbeddingStats>((current, row) => {
+    const status = resolveDocumentChunkEmbeddingStatus(row);
+
+    return {
+      ...current,
+      [status]: current[status] + 1,
+      total: current.total + 1
+    };
+  }, createEmptyEmbeddingStats());
+
+  return {
+    ...stats,
+    partiallyEmbedded: stats.total > 0 && stats.completed < stats.total
+  };
 }
 
 async function getLatestMarkdownVersion(documentId: string): Promise<MarkdownVersion | null> {
@@ -176,9 +228,18 @@ export async function getDocument(
     .where(and(eq(documents.projectId, projectId), eq(documents.id, documentId)))
     .limit(1);
 
-  return row
-    ? mapDocumentDetail(row, await getCurrentMarkdownVersion(row.id, row.currentMarkdownVersionId))
-    : null;
+  if (!row) return null;
+
+  const currentMarkdownVersion = await getCurrentMarkdownVersion(
+    row.id,
+    row.currentMarkdownVersionId
+  );
+
+  return mapDocumentDetail(
+    row,
+    currentMarkdownVersion,
+    await getDocumentEmbeddingStats(currentMarkdownVersion?.id ?? null)
+  );
 }
 
 export async function listMarkdownVersions(
@@ -282,7 +343,10 @@ export async function createDocument(
 }
 
 export async function deleteDocument(documentId: string): Promise<void> {
-  await db.delete(documents).where(eq(documents.id, documentId));
+  await db.transaction(async (transaction) => {
+    await transaction.delete(documentChunks).where(eq(documentChunks.documentId, documentId));
+    await transaction.delete(documents).where(eq(documents.id, documentId));
+  });
 }
 
 export async function updateDocumentMetadata(
@@ -687,7 +751,13 @@ export async function listCurrentDocumentChunksForEmbedding(
       id: documentChunks.id
     })
     .from(documentChunks)
-    .where(eq(documentChunks.markdownVersionId, documentRow.currentMarkdownVersionId))
+    .where(
+      and(
+        eq(documentChunks.markdownVersionId, documentRow.currentMarkdownVersionId),
+        eq(documentChunks.embeddingStatus, "pending"),
+        isNull(documentChunks.embedding)
+      )
+    )
     .orderBy(documentChunks.chunkIndex);
 }
 
@@ -714,6 +784,7 @@ export async function updateDocumentChunkEmbeddings(
         embedding: update.embedding,
         embeddingDimension: metadata.dimension,
         embeddingModel: metadata.model,
+        embeddingStatus: "completed",
         embeddingTaskType: metadata.taskType
       })
       .where(eq(documentChunks.id, update.chunkId))
@@ -723,6 +794,30 @@ export async function updateDocumentChunkEmbeddings(
       throw new Error("Document chunk embedding update returned no row");
     }
   }
+}
+
+export async function markPendingDocumentChunkEmbeddingsFailed(documentId: string): Promise<void> {
+  const [documentRow] = await db
+    .select({
+      currentMarkdownVersionId: documents.currentMarkdownVersionId,
+      pipelineStage: documents.pipelineStage
+    })
+    .from(documents)
+    .where(eq(documents.id, documentId))
+    .limit(1);
+
+  if (!documentRow?.currentMarkdownVersionId || documentRow.pipelineStage !== "embed") return;
+
+  await db
+    .update(documentChunks)
+    .set({ embeddingStatus: "failed" })
+    .where(
+      and(
+        eq(documentChunks.markdownVersionId, documentRow.currentMarkdownVersionId),
+        eq(documentChunks.embeddingStatus, "pending"),
+        isNull(documentChunks.embedding)
+      )
+    );
 }
 
 export async function restoreQueuedDocumentStage(
