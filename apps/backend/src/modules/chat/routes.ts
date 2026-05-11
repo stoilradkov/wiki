@@ -169,7 +169,6 @@ export async function registerChatRoutes(server: FastifyInstance) {
         }
       } catch {
         sendTerminalError();
-        endStream(reply);
       }
     }
   );
