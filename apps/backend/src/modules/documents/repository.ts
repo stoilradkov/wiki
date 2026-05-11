@@ -282,7 +282,10 @@ export async function createDocument(
 }
 
 export async function deleteDocument(documentId: string): Promise<void> {
-  await db.delete(documents).where(eq(documents.id, documentId));
+  await db.transaction(async (transaction) => {
+    await transaction.delete(documentChunks).where(eq(documentChunks.documentId, documentId));
+    await transaction.delete(documents).where(eq(documents.id, documentId));
+  });
 }
 
 export async function updateDocumentMetadata(
