@@ -84,6 +84,11 @@ export async function registerChatRoutes(server: FastifyInstance) {
       prepareStream(reply);
 
       let terminalSent = false;
+      const streamController = new AbortController();
+      reply.raw.once("close", () => {
+        streamController.abort();
+      });
+
       const sendTerminalError = () => {
         if (terminalSent) {
           endStream(reply);
@@ -105,52 +110,59 @@ export async function registerChatRoutes(server: FastifyInstance) {
       };
 
       try {
-        const found = await streamGroundedChatMessage(projectId, threadId, streamId, {
-          token: (delta) => {
-            sendStreamEvent(
-              reply,
-              "chat_token",
-              chatTokenEventSchema.parse({
-                type: "chat_token",
-                projectId,
-                threadId,
-                messageId: streamId,
-                delta,
-                occurredAt: new Date().toISOString()
-              })
-            );
+        const found = await streamGroundedChatMessage(
+          projectId,
+          threadId,
+          streamId,
+          {
+            token: (delta) => {
+              sendStreamEvent(
+                reply,
+                "chat_token",
+                chatTokenEventSchema.parse({
+                  type: "chat_token",
+                  projectId,
+                  threadId,
+                  messageId: streamId,
+                  delta,
+                  occurredAt: new Date().toISOString()
+                })
+              );
+            },
+            completed: (message) => {
+              sendStreamEvent(
+                reply,
+                "chat_completed",
+                chatCompletedEventSchema.parse({
+                  type: "chat_completed",
+                  projectId,
+                  threadId,
+                  message,
+                  occurredAt: new Date().toISOString()
+                })
+              );
+              terminalSent = true;
+              endStream(reply);
+            },
+            error: (message) => {
+              sendStreamEvent(
+                reply,
+                "chat_error",
+                chatErrorEventSchema.parse({
+                  type: "chat_error",
+                  projectId,
+                  threadId,
+                  message,
+                  occurredAt: new Date().toISOString()
+                })
+              );
+              terminalSent = true;
+              endStream(reply);
+            }
           },
-          completed: (message) => {
-            sendStreamEvent(
-              reply,
-              "chat_completed",
-              chatCompletedEventSchema.parse({
-                type: "chat_completed",
-                projectId,
-                threadId,
-                message,
-                occurredAt: new Date().toISOString()
-              })
-            );
-            terminalSent = true;
-            endStream(reply);
-          },
-          error: (message) => {
-            sendStreamEvent(
-              reply,
-              "chat_error",
-              chatErrorEventSchema.parse({
-                type: "chat_error",
-                projectId,
-                threadId,
-                message,
-                occurredAt: new Date().toISOString()
-              })
-            );
-            terminalSent = true;
-            endStream(reply);
-          }
-        });
+          undefined,
+          { abortSignal: streamController.signal }
+        );
 
         if (!found) {
           sendTerminalError();

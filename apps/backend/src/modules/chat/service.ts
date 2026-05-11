@@ -31,6 +31,7 @@ export type ChatAnswerStreamer = (input: {
   question: string;
   references: ChatRetrievedChunkReference[];
   sourceContext: string;
+  abortSignal?: AbortSignal;
 }) => AsyncIterable<string>;
 
 export type GroundedChatStreamDependencies = {
@@ -47,6 +48,10 @@ export type ChatStreamSink = {
   token: (delta: string) => void;
   completed: (message: ChatThreadDetail["messages"][number]) => void;
   error: (message: ChatThreadDetail["messages"][number]) => void;
+};
+
+export type GroundedChatStreamOptions = {
+  abortSignal?: AbortSignal;
 };
 
 export async function createPendingGroundedChatMessage(
@@ -74,7 +79,8 @@ export async function streamGroundedChatMessage(
   dependencies: GroundedChatStreamDependencies = {
     streamAnswer: streamGroundedAnswer,
     search: searchHybrid
-  }
+  },
+  options: GroundedChatStreamOptions = {}
 ): Promise<boolean> {
   const thread = await getChatThread(projectId, threadId);
   if (!thread) return false;
@@ -141,7 +147,8 @@ export async function streamGroundedChatMessage(
     for await (const delta of dependencies.streamAnswer({
       question: query,
       references,
-      sourceContext: buildSourceContext(retrieval.results)
+      sourceContext: buildSourceContext(retrieval.results),
+      abortSignal: options.abortSignal
     })) {
       content += delta;
       sink.token(delta);
@@ -338,6 +345,7 @@ export function streamGroundedAnswer(input: {
   question: string;
   references: ChatRetrievedChunkReference[];
   sourceContext: string;
+  abortSignal?: AbortSignal;
 }): AsyncIterable<string> {
   if (!env.GEMINI_API_KEY) {
     throw new Error("GEMINI_API_KEY is required for grounded chat answers");
@@ -348,6 +356,7 @@ export function streamGroundedAnswer(input: {
   });
   const { textStream } = streamText({
     model: google(normalizeGeminiModelName(env.AI_GENERATION_MODEL)),
+    abortSignal: input.abortSignal,
     system: [
       "You answer questions using only the retrieved knowledge base sources.",
       "Do not use general model knowledge by default.",

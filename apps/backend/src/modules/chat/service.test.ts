@@ -250,6 +250,41 @@ describe("chat service", () => {
     expect(mocks.failAssistantMessage).not.toHaveBeenCalled();
   });
 
+  it("passes the abort signal through to grounded answer streaming", async () => {
+    const controller = new AbortController();
+    const streamAnswer = vi.fn().mockReturnValue(asyncIterableOf(["Chat is grounded now [C1]."]));
+    const search = vi.fn().mockResolvedValue({ results: [searchResult] });
+    const completedMessage = chatMessageSchema.parse({
+      ...pendingAssistantMessage,
+      content: "Chat is grounded now [C1].",
+      assistantStatus: "completed"
+    });
+    const sink = createSink();
+    mocks.getChatThread.mockResolvedValueOnce(streamedThread);
+    mocks.claimPendingAssistantMessageStream.mockResolvedValue(pendingAssistantMessage);
+    mocks.completeAssistantMessage.mockResolvedValue(completedMessage);
+
+    await expect(
+      streamGroundedChatMessage(
+        projectId,
+        threadId,
+        assistantMessageId,
+        sink,
+        {
+          streamAnswer,
+          search
+        },
+        { abortSignal: controller.signal }
+      )
+    ).resolves.toBe(true);
+
+    expect(streamAnswer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        abortSignal: controller.signal
+      })
+    );
+  });
+
   it("answers with lack-of-information message when retrieval returns no chunks", async () => {
     const streamAnswer = vi.fn();
     const search = vi.fn().mockResolvedValue({ results: [] });
