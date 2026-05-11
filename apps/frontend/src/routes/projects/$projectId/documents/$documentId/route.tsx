@@ -2,7 +2,7 @@ import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { z } from "zod";
-import { ArrowLeft } from "lucide-react";
+import { AlertTriangle, ArrowLeft } from "lucide-react";
 import { Button } from "@wiki/frontend/components/ui/button";
 import { SkeletonBlock, PageError } from "@wiki/frontend/components/interaction";
 import { getDocument } from "@wiki/frontend/modules/documents/api";
@@ -78,6 +78,10 @@ function DocumentDetailView() {
   }
 
   const document = documentQuery.data;
+  const embeddingStats = document.embeddingStats;
+  const unavailableChunkCount = embeddingStats.failed + embeddingStats.pending;
+  const showEmbeddingWarning =
+    unavailableChunkCount > 0 && document.status !== "processing" && document.status !== "queued";
 
   return (
     <section className="content-panel grid gap-4">
@@ -97,6 +101,19 @@ function DocumentDetailView() {
         <DocumentStatusBadge status={document.status} />
       </div>
       {document.pipelineStage ? <PipelineStageBar stage={document.pipelineStage} /> : null}
+      {showEmbeddingWarning ? (
+        <div className="flex gap-3 rounded-md border-[0.5px] border-amber bg-(--amber-dim) p-3.5 text-ui text-foreground">
+          <AlertTriangle className="mt-0.5 size-3.75 shrink-0 text-amber" />
+          <div>
+            <p className="font-medium">Search coverage incomplete</p>
+            <p className="mt-1 text-muted-foreground">
+              {unavailableChunkCount} of {embeddingStats.total} chunks are not embedded (
+              {embeddingStats.failed} failed, {embeddingStats.pending} pending), so semantic search
+              may miss parts of this document.
+            </p>
+          </div>
+        </div>
+      ) : null}
       <DocumentPipelineStatusPanel document={document} projectId={projectId} />
       <DocumentDetailTabs
         citationChunkId={citationChunkId}

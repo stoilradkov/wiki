@@ -78,6 +78,7 @@ function createSearchResult(
         start: chunkIndex * 10,
         end: chunkIndex * 10 + 9
       },
+      embeddingStatus: "completed",
       embeddingModel: "gemini-embedding-2",
       embeddingDimension: 768,
       embeddingTaskType: "RETRIEVAL_DOCUMENT",

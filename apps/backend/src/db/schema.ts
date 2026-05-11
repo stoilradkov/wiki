@@ -1,5 +1,6 @@
 import {
   documentStatusValues,
+  documentChunkEmbeddingStatusValues,
   embeddingTaskTypeValues,
   entityTypeValues,
   eventTypeValues,
@@ -18,6 +19,7 @@ import {
   type ChatRetrievalMetadata,
   type ChatScope,
   type DocumentStatus,
+  type DocumentChunkEmbeddingStatus,
   type EmbeddingTaskType,
   type DocumentIngestionEvent,
   type EventType,
@@ -205,6 +207,12 @@ export const documentChunks = pgTable(
     startOffset: integer("start_offset").notNull(),
     endOffset: integer("end_offset").notNull(),
     embedding: vector("embedding", { dimensions: 768 }),
+    embeddingStatus: text("embedding_status", {
+      enum: documentChunkEmbeddingStatusValues
+    })
+      .$type<DocumentChunkEmbeddingStatus>()
+      .notNull()
+      .default("pending"),
     embeddingModel: text("embedding_model"),
     embeddingDimension: integer("embedding_dimension"),
     embeddingTaskType: text("embedding_task_type", {
@@ -217,6 +225,7 @@ export const documentChunks = pgTable(
     index("document_chunks_document_id_idx").on(table.documentId),
     index("document_chunks_markdown_version_id_idx").on(table.markdownVersionId),
     index("document_chunks_search_vector_idx").using("gin", table.searchVector),
+    index("document_chunks_embedding_status_idx").on(table.embeddingStatus),
     uniqueIndex("document_chunks_markdown_version_index_idx").on(
       table.markdownVersionId,
       table.chunkIndex

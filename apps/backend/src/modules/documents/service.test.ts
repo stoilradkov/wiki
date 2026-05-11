@@ -60,6 +60,13 @@ const document = documentDetailSchema.parse({
   rawContentHash: "raw-content-hash",
   rawContent: "Raw notes",
   currentMarkdownVersion: null,
+  embeddingStats: {
+    completed: 0,
+    failed: 0,
+    partiallyEmbedded: false,
+    pending: 0,
+    total: 0
+  },
   createdAt: "2026-05-11T08:00:00.000Z",
   updatedAt: "2026-05-11T08:00:00.000Z"
 });

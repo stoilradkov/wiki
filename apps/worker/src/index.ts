@@ -5,6 +5,7 @@ import {
   getDocument,
   listCurrentDocumentChunksForEmbedding,
   markDocumentFailed,
+  markPendingDocumentChunkEmbeddingsFailed,
   updateDocumentChunkEmbeddings,
   updateDocumentProgress,
   updateIngestionJobStatus
@@ -69,6 +70,7 @@ async function markTerminalFailure(
 ): Promise<void> {
   try {
     const classification = classifyIngestionError(error);
+    await markPendingDocumentChunkEmbeddingsFailed(documentId);
     const document = await markDocumentFailed(documentId, classification);
     await publish(document);
     await updateIngestionJobStatus(documentId, "failed", jobId);

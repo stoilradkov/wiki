@@ -1,0 +1,2 @@
+ALTER TABLE "document_chunks" ADD COLUMN "embedding_status" text DEFAULT 'pending' NOT NULL;--> statement-breakpoint
+CREATE INDEX "document_chunks_embedding_status_idx" ON "document_chunks" USING btree ("embedding_status");

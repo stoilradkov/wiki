@@ -26,6 +26,13 @@ const document: DocumentDetail = {
   createdAt: "2026-05-04T00:00:00.000Z",
   currentMarkdownVersion: null,
   currentMarkdownVersionId: null,
+  embeddingStats: {
+    completed: 0,
+    failed: 0,
+    partiallyEmbedded: false,
+    pending: 0,
+    total: 0
+  },
   errorCode: null,
   errorMessage: null,
   id: baseJob.documentId,
