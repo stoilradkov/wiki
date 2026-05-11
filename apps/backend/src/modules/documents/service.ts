@@ -39,10 +39,26 @@ async function enqueueWithRollback(
     const ingestionJobId = await createQueuedIngestionJob(documentId, jobData);
     await enqueueDocumentIngestion(jobData, ingestionJobId);
   } catch (error) {
-    await markQueuedIngestionJobsFailed(documentId);
-    await rollback();
-    throw error;
+    await rollbackPreservingError(error, async () => {
+      await markQueuedIngestionJobsFailed(documentId);
+      await rollback();
+    });
   }
+}
+
+async function rollbackPreservingError(
+  error: unknown,
+  rollback: () => Promise<unknown>
+): Promise<never> {
+  try {
+    await rollback();
+  } catch (rollbackError) {
+    if (error instanceof Error && error.cause === undefined) {
+      error.cause = rollbackError;
+    }
+  }
+
+  throw error;
 }
 
 export async function createDocumentAndEnqueueIngestion(
@@ -65,8 +81,7 @@ export async function createDocumentAndEnqueueIngestion(
     const ingestionJobId = await createQueuedIngestionJob(document.id, data);
     await enqueueDocumentIngestion(data, ingestionJobId);
   } catch (error) {
-    await deleteDocument(document.id);
-    throw error;
+    await rollbackPreservingError(error, () => deleteDocument(document.id));
   }
 
   return document;
