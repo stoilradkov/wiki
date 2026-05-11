@@ -1,5 +1,6 @@
 import { createGoogleGenerativeAI, type GoogleLanguageModelOptions } from "@ai-sdk/google";
 import { streamText } from "ai";
+import { normalizeGeminiModelName } from "@wiki/backend/ai/gemini";
 import { env } from "@wiki/backend/env";
 import {
   completeAssistantMessage,
@@ -370,8 +371,4 @@ export function streamGroundedAnswer(input: {
   });
 
   return textStream;
-}
-
-function normalizeGeminiModelName(modelName: string): string {
-  return modelName.startsWith("models/") ? modelName.slice("models/".length) : modelName;
 }

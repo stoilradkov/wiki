@@ -1,5 +1,6 @@
 import { createGoogleGenerativeAI, type GoogleEmbeddingModelOptions } from "@ai-sdk/google";
 import { embed } from "ai";
+import { normalizeGeminiModelName } from "@wiki/backend/ai/gemini";
 import { env } from "@wiki/backend/env";
 import type { EmbeddingTaskType } from "@wiki/shared";
 
@@ -33,8 +34,4 @@ export async function embedSearchQuery(query: string): Promise<number[]> {
   }
 
   return result.embedding;
-}
-
-function normalizeGeminiModelName(modelName: string): string {
-  return modelName.startsWith("models/") ? modelName.slice("models/".length) : modelName;
 }
