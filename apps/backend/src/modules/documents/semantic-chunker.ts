@@ -285,7 +285,10 @@ function createOverlapBlocks(blocks: MarkdownBlock[]): MarkdownBlock[] {
     const block = blocks[index];
     if (!block) continue;
     const blockTokens = countTokens(block.content);
-    if (blockTokens > semanticChunkingDefaults.overlapTokens) break;
+    if (blockTokens > semanticChunkingDefaults.overlapTokens) {
+      if (overlap.length === 0) return createHeadingOverlapBlocks(blocks);
+      break;
+    }
     const nextTokens = tokens + blockTokens;
     if (overlap.length > 0 && nextTokens > semanticChunkingDefaults.overlapTokens) break;
     overlap.unshift(block);
@@ -293,6 +296,32 @@ function createOverlapBlocks(blocks: MarkdownBlock[]): MarkdownBlock[] {
   }
 
   return overlap;
+}
+
+function createHeadingOverlapBlocks(blocks: MarkdownBlock[]): MarkdownBlock[] {
+  const headingStack: Array<MarkdownBlock | undefined> = [];
+
+  for (const block of blocks) {
+    if (block.kind !== "heading") continue;
+
+    const level = getHeadingBlockLevel(block);
+    if (!level) continue;
+
+    headingStack.splice(level - 1);
+    headingStack[level - 1] = block;
+  }
+
+  return headingStack.filter(isMarkdownBlock);
+}
+
+function getHeadingBlockLevel(block: MarkdownBlock): number | null {
+  const match = /^(#{1,6})\s+/.exec(block.content);
+  const marker = match?.[1];
+  return marker ? marker.length : null;
+}
+
+function isMarkdownBlock(block: MarkdownBlock | undefined): block is MarkdownBlock {
+  return block !== undefined;
 }
 
 function splitOversizedBlock(block: MarkdownBlock, firstIndex: number): SemanticChunk[] {
