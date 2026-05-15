@@ -131,6 +131,51 @@ describe("chunkMarkdownSemantically", () => {
       firstChunkWords.slice(-overlapWordCount)
     );
   });
+
+  it("falls back to heading overlap when the last block exceeds overlap tokens", () => {
+    const largeCode = createWords("token", 120);
+    const nextSection = createWords("detail", 650);
+    const markdown = ["# Guide", "", "```ts", largeCode, "```", "", nextSection].join("\n");
+    const chunks = chunkMarkdownSemantically(markdown);
+    const detailChunk = chunks.find((chunk) => chunk.content.includes("detail"));
+
+    expect(chunks[0]?.content).toContain("```ts");
+    expect(countTokens(chunks[0]?.content ?? "")).toBeGreaterThan(
+      semanticChunkingDefaults.overlapTokens
+    );
+    expect(detailChunk?.content).toContain("# Guide");
+    expect(detailChunk?.headingPath).toEqual(["Guide"]);
+  });
+
+  it("uses the latest heading stack when duplicate heading text exists", () => {
+    const largeCode = createWords("token", 120);
+    const nextSection = createWords("detail", 650);
+    const markdown = [
+      "# API",
+      "",
+      "## Usage",
+      "",
+      "Old usage notes.",
+      "",
+      "# CLI",
+      "",
+      "## Usage",
+      "",
+      "```ts",
+      largeCode,
+      "```",
+      "",
+      nextSection
+    ].join("\n");
+    const chunks = chunkMarkdownSemantically(markdown);
+    const detailChunk = chunks.find((chunk) => chunk.content.includes("detail"));
+
+    expect(detailChunk?.content).toContain("# CLI");
+    expect(detailChunk?.content).toContain("## Usage");
+    expect(detailChunk?.content).not.toContain("# API");
+    expect(detailChunk?.content).not.toContain("Old usage notes.");
+    expect(detailChunk?.headingPath).toEqual(["CLI", "Usage"]);
+  });
 });
 
 function createWords(word: string, count: number): string {
