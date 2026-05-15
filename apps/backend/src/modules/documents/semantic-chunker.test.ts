@@ -54,6 +54,39 @@ describe("chunkMarkdownSemantically", () => {
     expect(combined).toContain("| Name | Value |\n| --- | --- |\n| Alpha | Beta |");
   });
 
+  it("splits code blocks beyond the hard token cap by line boundaries", () => {
+    const largeCodeLines = Array.from(
+      { length: 320 },
+      (_, index) => `const value${index} = "${createWords("token", 5)}";`
+    );
+    const markdown = ["# Big Code", "", "```ts", ...largeCodeLines, "```"].join("\n");
+    const chunks = chunkMarkdownSemantically(markdown);
+    const codeChunks = chunks.filter((chunk) => chunk.content.includes("const value"));
+    const respectsSoftCap = codeChunks.every(
+      (chunk) => chunk.tokenCount <= semanticChunkingDefaults.softMaxTokens + 50
+    );
+
+    expect(codeChunks.length).toBeGreaterThan(1);
+    expect(respectsSoftCap).toBe(true);
+    expect(codeChunks.every((chunk) => chunk.content.includes("\n"))).toBe(true);
+  });
+
+  it("splits large tables beyond the hard token cap by line boundaries", () => {
+    const tableRows = Array.from(
+      { length: 360 },
+      (_, index) => `| ${index} | ${createWords("cell", 5)} |`
+    );
+    const markdown = ["# Big Table", "", "| Id | Content |", "| --- | --- |", ...tableRows].join("\n");
+    const chunks = chunkMarkdownSemantically(markdown);
+    const tableChunks = chunks.filter((chunk) => chunk.content.includes("|"));
+    const respectsSoftCap = tableChunks.every(
+      (chunk) => chunk.tokenCount <= semanticChunkingDefaults.softMaxTokens + 50
+    );
+
+    expect(tableChunks.length).toBeGreaterThan(1);
+    expect(respectsSoftCap).toBe(true);
+  });
+
   it("uses documented default token targets", () => {
     expect(semanticChunkingDefaults).toEqual({
       targetTokens: 700,

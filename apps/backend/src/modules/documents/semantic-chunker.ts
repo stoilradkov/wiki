@@ -4,6 +4,8 @@ export const semanticChunkingDefaults = {
   overlapTokens: 100
 };
 
+const atomicBlockHardMaxTokens = semanticChunkingDefaults.softMaxTokens * 2;
+
 export interface SemanticChunk {
   chunkIndex: number;
   headingPath: string[];
@@ -285,10 +287,36 @@ function createOverlapBlocks(blocks: MarkdownBlock[]): MarkdownBlock[] {
 
 function splitOversizedBlock(block: MarkdownBlock, firstIndex: number): SemanticChunk[] {
   if (block.kind === "code" || block.kind === "table") {
+    if (countTokens(block.content) > atomicBlockHardMaxTokens) {
+      return splitOversizedBlockByLines(block, firstIndex);
+    }
+
     return [createChunk(firstIndex, [block])];
   }
 
   return splitOversizedTextBlock(block, firstIndex);
+}
+
+function splitOversizedBlockByLines(block: MarkdownBlock, firstIndex: number): SemanticChunk[] {
+  const lines = getMarkdownLines(block.content);
+  const chunks: SemanticChunk[] = [];
+  let activeLines: MarkdownLine[] = [];
+
+  for (const line of lines) {
+    const nextContent = [...activeLines, line].map((item) => item.text).join("").trim();
+    if (activeLines.length > 0 && countTokens(nextContent) > semanticChunkingDefaults.softMaxTokens) {
+      chunks.push(createChunkFromLines(firstIndex + chunks.length, block, activeLines));
+      activeLines = [];
+    }
+
+    activeLines.push(line);
+  }
+
+  if (activeLines.length > 0) {
+    chunks.push(createChunkFromLines(firstIndex + chunks.length, block, activeLines));
+  }
+
+  return chunks;
 }
 
 function splitOversizedTextBlock(block: MarkdownBlock, firstIndex: number): SemanticChunk[] {
