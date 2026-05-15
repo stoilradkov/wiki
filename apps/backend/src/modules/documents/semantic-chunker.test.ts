@@ -71,6 +71,20 @@ describe("chunkMarkdownSemantically", () => {
     expect(codeChunks.every((chunk) => chunk.content.includes("\n"))).toBe(true);
   });
 
+  it("splits oversized single-line unclosed code fences", () => {
+    const largeMinifiedExport = `export const value = {${Array.from(
+      { length: 2_000 },
+      (_, index) => `"key${index}":"value${index}"`
+    ).join(",")}};`;
+    const markdown = ["# Broken Export", "", "```ts", largeMinifiedExport].join("\n");
+    const chunks = chunkMarkdownSemantically(markdown);
+    const codeChunks = chunks.filter((chunk) => chunk.content.includes("key"));
+    const hardMaxTokens = semanticChunkingDefaults.softMaxTokens * 2;
+
+    expect(codeChunks.length).toBeGreaterThan(1);
+    expect(chunks.every((chunk) => chunk.tokenCount <= hardMaxTokens)).toBe(true);
+  });
+
   it("splits large tables beyond the hard token cap by line boundaries", () => {
     const tableRows = Array.from(
       { length: 360 },
@@ -101,6 +115,21 @@ describe("chunkMarkdownSemantically", () => {
 
     expect(chunks.length).toBeGreaterThan(1);
     expect(chunks.every((chunk) => countTokens(chunk.content) <= 920)).toBe(true);
+  });
+
+  it("overlaps oversized paragraph splits", () => {
+    const words = Array.from({ length: 1_600 }, (_, index) => `word${index}`);
+    const markdown = `# Big\n\n${words.join(" ")}`;
+    const chunks = chunkMarkdownSemantically(markdown);
+    const paragraphChunks = chunks.filter((chunk) => chunk.content.includes("word"));
+    const firstChunkWords = paragraphChunks[0]?.content.split(/\s+/) ?? [];
+    const secondChunkWords = paragraphChunks[1]?.content.split(/\s+/) ?? [];
+    const overlapWordCount = Math.floor(semanticChunkingDefaults.overlapTokens / 1.25);
+
+    expect(paragraphChunks.length).toBeGreaterThan(1);
+    expect(secondChunkWords.slice(0, overlapWordCount)).toEqual(
+      firstChunkWords.slice(-overlapWordCount)
+    );
   });
 });
 
