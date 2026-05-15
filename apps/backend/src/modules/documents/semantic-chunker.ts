@@ -132,6 +132,16 @@ interface MarkdownLine {
   endOffset: number;
 }
 
+interface WordRange {
+  start: number;
+  end: number;
+}
+
+interface TokenRange {
+  start: number;
+  end: number;
+}
+
 function getMarkdownLines(markdown: string): MarkdownLine[] {
   const linePattern = /.*(?:\r\n|\n|\r|$)/g;
   const lines: MarkdownLine[] = [];
@@ -303,6 +313,16 @@ function splitOversizedBlockByLines(block: MarkdownBlock, firstIndex: number): S
   let activeLines: MarkdownLine[] = [];
 
   for (const line of lines) {
+    if (countTokens(line.text) > semanticChunkingDefaults.softMaxTokens) {
+      if (activeLines.length > 0) {
+        chunks.push(createChunkFromLines(firstIndex + chunks.length, block, activeLines));
+        activeLines = [];
+      }
+
+      chunks.push(...splitOversizedLine(firstIndex + chunks.length, block, line));
+      continue;
+    }
+
     const nextContent = [...activeLines, line].map((item) => item.text).join("").trim();
     if (activeLines.length > 0 && countTokens(nextContent) > semanticChunkingDefaults.softMaxTokens) {
       chunks.push(createChunkFromLines(firstIndex + chunks.length, block, activeLines));
@@ -319,31 +339,63 @@ function splitOversizedBlockByLines(block: MarkdownBlock, firstIndex: number): S
   return chunks;
 }
 
-function splitOversizedTextBlock(block: MarkdownBlock, firstIndex: number): SemanticChunk[] {
-  const maxWords = Math.max(1, Math.floor(semanticChunkingDefaults.softMaxTokens / 1.25));
-  const wordPattern = /\S+/g;
+function splitOversizedLine(
+  firstIndex: number,
+  source: MarkdownBlock,
+  line: MarkdownLine
+): SemanticChunk[] {
+  const maxTokens = Math.max(1, Math.floor(semanticChunkingDefaults.softMaxTokens / 1.25));
+  const tokens = getTokenRanges(line.text);
   const chunks: SemanticChunk[] = [];
-  let segmentStart = 0;
-  let segmentEnd = 0;
-  let wordCount = 0;
-  let match = wordPattern.exec(block.content);
 
-  while (match?.[0] !== undefined) {
-    if (wordCount >= maxWords) {
-      chunks.push(
-        createChunkFromContentRange(firstIndex + chunks.length, block, segmentStart, segmentEnd)
-      );
-      segmentStart = match.index;
-      wordCount = 0;
-    }
+  let tokenStartIndex = 0;
+  while (tokenStartIndex < tokens.length) {
+    const tokenEndIndex = Math.min(tokenStartIndex + maxTokens, tokens.length);
+    const firstToken = tokens[tokenStartIndex];
+    const lastToken = tokens[tokenEndIndex - 1];
+    if (!firstToken || !lastToken) break;
 
-    segmentEnd = match.index + match[0].length;
-    wordCount += 1;
-    match = wordPattern.exec(block.content);
+    chunks.push(
+      createChunkFromContentRange(
+        firstIndex + chunks.length,
+        source,
+        line.startOffset + firstToken.start,
+        line.startOffset + lastToken.end
+      )
+    );
+
+    tokenStartIndex = tokenEndIndex;
   }
 
-  if (segmentEnd > segmentStart) {
-    chunks.push(createChunkFromContentRange(firstIndex + chunks.length, block, segmentStart, segmentEnd));
+  return chunks;
+}
+
+function splitOversizedTextBlock(block: MarkdownBlock, firstIndex: number): SemanticChunk[] {
+  const maxWords = Math.max(1, Math.floor(semanticChunkingDefaults.softMaxTokens / 1.25));
+  const overlapWords = Math.min(
+    maxWords - 1,
+    Math.floor(semanticChunkingDefaults.overlapTokens / 1.25)
+  );
+  const words = getWordRanges(block.content);
+  const chunks: SemanticChunk[] = [];
+
+  let segmentStartWordIndex = 0;
+  while (segmentStartWordIndex < words.length) {
+    const segmentEndWordIndex = Math.min(segmentStartWordIndex + maxWords, words.length);
+    const firstWord = words[segmentStartWordIndex];
+    const lastWord = words[segmentEndWordIndex - 1];
+    if (!firstWord || !lastWord) break;
+
+    chunks.push(
+      createChunkFromContentRange(firstIndex + chunks.length, block, firstWord.start, lastWord.end)
+    );
+
+    if (segmentEndWordIndex >= words.length) break;
+
+    segmentStartWordIndex = Math.max(
+      segmentEndWordIndex - overlapWords,
+      segmentStartWordIndex + 1
+    );
   }
 
   if (chunks.length > 0) return chunks;
@@ -369,6 +421,38 @@ function splitOversizedTextBlock(block: MarkdownBlock, firstIndex: number): Sema
   }
 
   return lineChunks;
+}
+
+function getWordRanges(content: string): WordRange[] {
+  const wordPattern = /\S+/g;
+  const words: WordRange[] = [];
+  let match = wordPattern.exec(content);
+
+  while (match?.[0] !== undefined) {
+    words.push({
+      end: match.index + match[0].length,
+      start: match.index
+    });
+    match = wordPattern.exec(content);
+  }
+
+  return words;
+}
+
+function getTokenRanges(content: string): TokenRange[] {
+  const tokenPattern = /[\p{L}\p{N}_'-]+|[^\s]/gu;
+  const tokens: TokenRange[] = [];
+  let match = tokenPattern.exec(content);
+
+  while (match?.[0] !== undefined) {
+    tokens.push({
+      end: match.index + match[0].length,
+      start: match.index
+    });
+    match = tokenPattern.exec(content);
+  }
+
+  return tokens;
 }
 
 function createChunkFromContentRange(
