@@ -180,6 +180,35 @@ describe("processDocumentIngestion", () => {
     );
   });
 
+  it("rejects zero-chunk documents before embedding or marking ready", async () => {
+    const progressEvents: DocumentIngestionEvent[] = [];
+    const stageTransitions: Array<PipelineStage> = [];
+    const dependencies = createDependencies(stageTransitions, document, true, []);
+
+    await expect(
+      processDocumentIngestion(
+        { ...baseJob, startStage: "chunk" },
+        async (event) => {
+          progressEvents.push(event);
+        },
+        dependencies
+      )
+    ).rejects.toThrow("zero semantic chunks");
+
+    expect(stageTransitions).toEqual(["chunk"]);
+    expect(dependencies.embedCurrentDocumentChunks).not.toHaveBeenCalled();
+    expect(dependencies.extractAndStoreStructuredDocument).not.toHaveBeenCalled();
+    expect(dependencies.updateDocumentProgress).not.toHaveBeenCalledWith(
+      baseJob.documentId,
+      "ready",
+      "complete"
+    );
+    expect(dependencies.updateIngestionJobStatus).not.toHaveBeenCalledWith(
+      baseJob.documentId,
+      "completed"
+    );
+  });
+
   it("cleans derived data before reprocessing current markdown", async () => {
     const progressEvents: DocumentIngestionEvent[] = [];
     const stageTransitions: Array<PipelineStage> = [];
@@ -305,10 +334,11 @@ describe("processDocumentIngestion", () => {
 function createDependencies(
   stageTransitions: Array<PipelineStage>,
   sourceDocument = document,
-  extractionStored = true
+  extractionStored = true,
+  chunkResult: readonly unknown[] = ["chunk"]
 ): IngestionPipelineDependencies {
   return {
-    chunkCurrentMarkdownVersion: vi.fn(async () => []),
+    chunkCurrentMarkdownVersion: vi.fn(async () => chunkResult),
     createMarkdownVersionFromMarkdownify: vi.fn(async () => sourceDocument),
     deleteDocumentDerivedDataForReprocess: vi.fn(async () => undefined),
     embedCurrentDocumentChunks: vi.fn(async () => undefined),

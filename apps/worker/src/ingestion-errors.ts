@@ -18,6 +18,7 @@ const quotaIndicators = [
 ];
 
 const validationIndicators = ["validation", "zod", "invalid output", "schema"];
+const emptyDocumentIndicators = ["zero semantic chunks", "no searchable content"];
 const embeddingIndicators = ["embed", "embedding"];
 const databaseIndicators = ["database", "postgres", "db update", "connection refused"];
 const modelIndicators = [
@@ -43,6 +44,15 @@ export function classifyIngestionError(error: Error): IngestionErrorClassificati
       message: "AI quota or rate limit was reached. Retry later.",
       retryable: true,
       reason: "quota_or_rate_limit"
+    };
+  }
+
+  if (includesAny(normalized, emptyDocumentIndicators)) {
+    return {
+      code: "validation_failed",
+      message: "Document contains no searchable content. Add non-empty text and retry ingestion.",
+      retryable: false,
+      reason: "empty_document"
     };
   }
 

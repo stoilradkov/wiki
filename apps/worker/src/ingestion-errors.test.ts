@@ -43,4 +43,15 @@ describe("classifyIngestionError", () => {
       retryable: false
     });
   });
+
+  it("stores a descriptive failure for documents with no chunks", () => {
+    const error = new Error("Document validation failed: markdown produced zero semantic chunks.");
+
+    expect(classifyIngestionError(error)).toMatchObject({
+      code: "validation_failed",
+      message: "Document contains no searchable content. Add non-empty text and retry ingestion.",
+      reason: "empty_document",
+      retryable: false
+    });
+  });
 });

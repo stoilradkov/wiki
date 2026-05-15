@@ -29,37 +29,51 @@ import {
 } from "@wiki/shared";
 import { env } from "@wiki/worker/env";
 import { processDocumentIngestion } from "@wiki/worker/ingestion-pipeline";
-import { classifyIngestionError } from "@wiki/worker/ingestion-errors";
+import {
+  classifyIngestionError,
+  type IngestionErrorClassification
+} from "@wiki/worker/ingestion-errors";
 import { embedCurrentDocumentChunks } from "@wiki/worker/embeddings";
 import { extractStructuredDocument } from "@wiki/worker/extraction";
 import { markdownifyRawContent } from "@wiki/worker/markdownify";
-import { Worker } from "bullmq";
+import { UnrecoverableError, Worker } from "bullmq";
 
 async function processDocument(
   data: IngestionJobData,
   jobId: string,
   progress: (event: DocumentIngestionEvent) => Promise<void>
 ): Promise<void> {
-  await processDocumentIngestion(data, progress, {
-    chunkCurrentMarkdownVersion,
-    createMarkdownVersionFromMarkdownify,
-    deleteDocumentDerivedDataForReprocess,
-    embedCurrentDocumentChunks: (documentId) =>
-      embedCurrentDocumentChunks(documentId, {
-        listCurrentDocumentChunksForEmbedding,
-        updateDocumentChunkEmbeddings
-      }),
-    extractAndStoreStructuredDocument: async (documentId) => {
-      const input = await getExtractionDocumentInput(documentId);
-      const result = await extractStructuredDocument(input);
-      return storeStructuredExtractionResult(documentId, input.markdownVersionId, result);
-    },
-    getDocument,
-    markdownifyRawContent,
-    updateDocumentProgress,
-    updateIngestionJobStatus: (documentId, status) =>
-      updateIngestionJobStatus(documentId, status, jobId)
-  });
+  try {
+    await processDocumentIngestion(data, progress, {
+      chunkCurrentMarkdownVersion,
+      createMarkdownVersionFromMarkdownify,
+      deleteDocumentDerivedDataForReprocess,
+      embedCurrentDocumentChunks: (documentId) =>
+        embedCurrentDocumentChunks(documentId, {
+          listCurrentDocumentChunksForEmbedding,
+          updateDocumentChunkEmbeddings
+        }),
+      extractAndStoreStructuredDocument: async (documentId) => {
+        const input = await getExtractionDocumentInput(documentId);
+        const result = await extractStructuredDocument(input);
+        return storeStructuredExtractionResult(documentId, input.markdownVersionId, result);
+      },
+      getDocument,
+      markdownifyRawContent,
+      updateDocumentProgress,
+      updateIngestionJobStatus: (documentId, status) =>
+        updateIngestionJobStatus(documentId, status, jobId)
+    });
+  } catch (error) {
+    if (error instanceof Error && shouldFailImmediately(classifyIngestionError(error))) {
+      throw new UnrecoverableError(error.message);
+    }
+    throw error;
+  }
+}
+
+function shouldFailImmediately(classification: IngestionErrorClassification): boolean {
+  return classification.reason === "empty_document" || classification.reason === "validation";
 }
 
 async function markTerminalFailure(
@@ -135,12 +149,13 @@ worker.on("failed", (job, error) => {
   const classification = classifyIngestionError(error);
   const attempts = typeof job?.opts.attempts === "number" ? job.opts.attempts : 1;
   const exhausted = job ? job.attemptsMade >= attempts : true;
+  const terminal = exhausted || shouldFailImmediately(classification);
   console.error(
     JSON.stringify({
-      level: exhausted ? "error" : "warn",
+      level: terminal ? "error" : "warn",
       service: "worker",
-      message: exhausted
-        ? "Document ingestion job exhausted retries"
+      message: terminal
+        ? "Document ingestion job reached terminal failure"
         : "Document ingestion job failed; retry scheduled by BullMQ",
       jobId: job?.id,
       documentId,
@@ -157,7 +172,7 @@ worker.on("failed", (job, error) => {
     })
   );
 
-  if (documentId && job?.id && exhausted) {
+  if (documentId && job?.id && terminal) {
     void markTerminalFailure(error, documentId, job.id, async (document) => {
       await job.updateProgress(
         documentIngestionEventSchema.parse({

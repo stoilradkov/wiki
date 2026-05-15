@@ -13,7 +13,7 @@ import { documentIngestionEventSchema, documentSchema } from "@wiki/shared";
 type ProgressReporter = (event: DocumentIngestionEvent) => Promise<void>;
 
 export type IngestionPipelineDependencies = {
-  chunkCurrentMarkdownVersion: (documentId: string) => Promise<unknown>;
+  chunkCurrentMarkdownVersion: (documentId: string) => Promise<readonly unknown[]>;
   createMarkdownVersionFromMarkdownify: (
     documentId: string,
     result: MarkdownifyResult
@@ -125,7 +125,12 @@ async function continueAutoIngestion(
 
     await updateStage(documentId, step.stage, progress, step.progress, dependencies);
     if (step.stage === "chunk") {
-      await dependencies.chunkCurrentMarkdownVersion(documentId);
+      const chunks = await dependencies.chunkCurrentMarkdownVersion(documentId);
+      if (chunks.length === 0) {
+        throw new Error(
+          "Document validation failed: markdown produced zero semantic chunks. Empty or whitespace-only documents cannot be marked ready."
+        );
+      }
     }
     if (step.stage === "embed") {
       await dependencies.embedCurrentDocumentChunks(documentId);
